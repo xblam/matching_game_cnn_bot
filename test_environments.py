@@ -12,7 +12,7 @@ _last_obs, infos = env.reset()
 dones = False
 action_space = infos["action_space"]
 
-while not dones:
+for i in range(10):
     # Identify the indices where the value is 1
     indices_with_one = [index for index, value in enumerate(action_space) if value == 1]
 
@@ -28,3 +28,5 @@ while not dones:
     else:
         print("No indices with value 1 found.")
         dones = True
+
+    # it think i am supposed to build my bot here

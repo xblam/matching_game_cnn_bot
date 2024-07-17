@@ -59,6 +59,9 @@ class Match3Env(gym.Env):
         self.__match3_actions = self.__get_available_actions_in_order()
         self.action_space = spaces.Discrete(len(self.__match3_actions))
 
+    def get_game(self):
+        return self.__game
+    
     @staticmethod
     def __get_directions(board_ndim):
         """get available directions for any number of dimensions"""

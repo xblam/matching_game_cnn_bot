@@ -249,6 +249,10 @@ class Board(AbstractBoard):
         self._check_availability(point)
         new_point = point + direction
         self.swap(point, new_point)
+    
+
+    def print_game(self):
+        print(self.board)
 
     def __is_board_exist(self):
         existence = self.__board is not None
@@ -1411,6 +1415,7 @@ class Game(AbstractGame):
             "power_damage_on_monster": total_power_dmg,
             "damage_on_user": self_dmg,
         }
+        print(self.board)
         return reward
 
     def __check_matches(self, point: Point, direction: Point):
