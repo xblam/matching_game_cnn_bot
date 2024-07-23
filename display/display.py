@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 
+
+# class DisplayGame:
 # Define the size of each tile
 tile_size = 50  # Width and height of each image tile
 
@@ -11,6 +13,14 @@ image_dict = {
     3: cv2.imread('3.png'),
     4: cv2.imread('4.png'),
     5: cv2.imread('5.png'),
+    6: cv2.imread('6.png'),
+    7: cv2.imread('7.png'),
+    8: cv2.imread('8.png'),
+    9: cv2.imread('9.png'),
+    10: cv2.imread('10.png'),
+    11: cv2.imread('11.png'),
+    12: cv2.imread('12.png'),
+    13: cv2.imread('13.png'),
     14: cv2.imread('14.png')
 }
 
