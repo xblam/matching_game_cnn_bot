@@ -1,6 +1,7 @@
 import random
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 
+
 from gym_match3.envs.match3_env import Match3Env
 
 env = Match3Env(90)
@@ -19,10 +20,11 @@ for i in range(10):
     # Randomly select one of those indices
     if indices_with_one:
         selected_action = random.choice(indices_with_one)
+
+        selected_action = int(input("put the move you want to do on the board: "))
         print("Selected index:", selected_action)
         obs, reward, dones, infos = env.step(selected_action)
 
-        print(obs.shape)
         print("Reward of this action:", reward)
 
     else:

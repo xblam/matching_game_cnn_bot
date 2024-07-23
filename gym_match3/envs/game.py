@@ -540,7 +540,7 @@ class MatchesSearcher(AbstractSearcher):
                     break
 
         return matches, new_power_ups
-
+    
     def __get_match3_for_point(self, board: Board, point: Point, need_all: bool = True):
         shape = board.get_shape(point)
         match3_list = []
