@@ -4,7 +4,6 @@ import numpy as np
 
 # class DisplayGame:
 # Define the size of each tile
-tile_size = 50  # Width and height of each image tile
 
 
 matrix = np.array([
@@ -21,6 +20,7 @@ matrix = np.array([
 ])
 
 def display_matrix(matrix):
+    tile_size = 50
     # Create a dictionary to store images for each number
     image_dict = {
         1: cv2.imread('1.png'),
