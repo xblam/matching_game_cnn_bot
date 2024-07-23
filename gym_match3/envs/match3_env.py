@@ -222,3 +222,7 @@ class Match3Env(gym.Env):
             warnings.warn("close=True isn't supported yet")
         self.renderer.render_board(self.__game.board)
         print(self.__game.board)
+
+    
+    def return_board(self):
+        return (self.__game.board.board)

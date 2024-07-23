@@ -8,38 +8,37 @@ from torch import nn
 import torch.nn.functional as F
 import math
 
+DEVICE =  torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 # Define model
 class DQN(nn.Module):
-    def __init__(self, input_shape, out_actions):
+    def __init__(self, out_actions):
         super().__init__()
 
-        # https://poloclub.github.io/cnn-explainer/
+        # this model is designed to take in inputs of rbg images with dimensinos 10x9
         self.conv_block1 = nn.Sequential(
-            nn.Conv2d(in_channels=input_shape, out_channels=64, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels=3, out_channels=10, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2)
-        )
-
-        self.conv_block2 = nn.Sequential(
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=64, out_channels=64, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels=10, out_channels=10, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2)
+            # the output will be 10 images of dimension 5x4
         )
 
         self.layer_stack = nn.Sequential(
             nn.Flatten(), # flatten inputs into a single vector
             # After flattening the matrix into a vector, pass it to the output layer. To determine the input shape, use the print() statement in forward()
-            nn.Linear(in_features=64*, out_features=out_actions)
+
+            # in this case the input should simply be the size of a singular image
+            nn.Linear(in_features=5*4, out_features=128),
+            nn.Linear(in_features=128, out_features=out_actions)
         )
+
+        # if something happens and we dont input the batch_size, then we will just manually resize the array so that the model still runs
 
     def forward(self, x):
         x = self.conv_block1(x)
-        x = self.conv_block2(x)
-        # print(x.shape)  # Use this to determine input shape of the output layer.
+        print(x.shape)  # Use this to determine input shape of the output layer.
         x = self.layer_stack(x)
         return x
 
@@ -62,6 +61,7 @@ class ReplayMemory():
 
     def __len__(self):
         return len(self.memory)
+
 
 # FrozeLake Deep Q-Learning
 class FrozenLakeDQL():
@@ -310,8 +310,57 @@ class FrozenLakeDQL():
                 print() # Print a newline every 4 states
 
 if __name__ == '__main__':
+    model = DQN(161).to(DEVICE)
+    matrix = np.array(([
+    [14, 14, 2, 4, 3, 1, 4, 2, 4],
+    [14, 14, 4, 3, 1, 2, 1, 3, 3],
+    [3, 4, 1, 5, 2, 4, 1, 2, 5],
+    [5, 5, 4, 5, 2, 5, 5, 4, 4],
+    [4, 1, 2, 3, 1, 2, 3, 4, 2],
+    [4, 1, 4, 4, 2, 4, 1, 3, 4],
+    [2, 4, 3, 3, 5, 5, 4, 1, 2],
+    [1, 2, 1, 1, 3, 3, 1, 4, 1],
+    [4, 1, 3, 2, 1, 2, 1, 5, 2],
+    [3, 2, 1, 2, 4, 2, 3, 2, 1]
+],[
+    [14, 14, 2, 4, 3, 1, 4, 2, 4],
+    [14, 14, 4, 3, 1, 2, 1, 3, 3],
+    [3, 4, 1, 5, 2, 4, 1, 2, 5],
+    [5, 5, 4, 5, 2, 5, 5, 4, 4],
+    [4, 1, 2, 3, 1, 2, 3, 4, 2],
+    [4, 1, 4, 4, 2, 4, 1, 3, 4],
+    [2, 4, 3, 3, 5, 5, 4, 1, 2],
+    [1, 2, 1, 1, 3, 3, 1, 4, 1],
+    [4, 1, 3, 2, 1, 2, 1, 5, 2],
+    [3, 2, 1, 2, 4, 2, 3, 2, 1]
+],[
+    [14, 14, 2, 4, 3, 1, 4, 2, 4],
+    [14, 14, 4, 3, 1, 2, 1, 3, 3],
+    [3, 4, 1, 5, 2, 4, 1, 2, 5],
+    [5, 5, 4, 5, 2, 5, 5, 4, 4],
+    [4, 1, 2, 3, 1, 2, 3, 4, 2],
+    [4, 1, 4, 4, 2, 4, 1, 3, 4],
+    [2, 4, 3, 3, 5, 5, 4, 1, 2],
+    [1, 2, 1, 1, 3, 3, 1, 4, 1],
+    [4, 1, 3, 2, 1, 2, 1, 5, 2],
+    [3, 2, 1, 2, 4, 2, 3, 2, 1]
+]))
+    
+    input_tensor = torch.tensor(matrix, dtype=torch.float).to(DEVICE)
 
-    frozen_lake = FrozenLakeDQL()
-    is_slippery = False
-    frozen_lake.train(1000, is_slippery=is_slippery)
-    frozen_lake.test(10, is_slippery=is_slippery)
+    if len(input_tensor.shape) == 3:
+        # (1, x)
+        state = torch.unsqueeze(input_tensor, 0)
+    # Pass the input through the model
+    print(input_tensor)
+    print(len(input_tensor.shape))
+    output = model(input_tensor)
+
+
+    # Print resulting predictions
+    print(output)
+    
+    # find a way to return what the model thinks is the actual prediction of the index of the move that we should make
+    _, predicted_index = torch.max(output, dim=1)
+
+    print(predicted_index)
