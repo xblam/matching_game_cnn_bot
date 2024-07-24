@@ -90,8 +90,6 @@ class Match3():
         target_dqn = DQN(input_shape=num_channels, out_actions=num_actions)
         target_dqn.load_state_dict(policy_dqn.state_dict())
 
-        print('Policy (random, before training):')
-        self.print_dqn(policy_dqn)
 
         self.optimizer = torch.optim.Adam(policy_dqn.parameters(), lr=self.learning_rate_a)
 
@@ -102,8 +100,12 @@ class Match3():
         step_count=0
 
         for i in range(episodes):
+            _last_obs, infos = env.reset()
+            state = env.return_state
             terminated = False # agent took too many steps
 
+            # have to see if there is any way to tell if the player's hp is under 0 or the creep's hp is under 0 so then we end the game
+            # will probably make it so we end the game if there is more than 50 moves and we still have not won or lost yet
             while(not terminated):
 
                 if random.random() < epsilon:
@@ -121,6 +123,8 @@ class Match3():
                 state = new_state
 
                 step_count+=1
+                if step_count > 50:
+                    terminated = True
 
                 rewards_per_episode[i] += reward
 
@@ -184,49 +188,11 @@ class Match3():
         loss.backward()
         self.optimizer.step()
 
-    '''
-    Converts a state (int) to a tensor representation for input into CNN: tensor[batch][channel][row][column].
-    The FrozenLake 4x4 map has 4x4=16 states numbered from 0 to 15. 
-    Example:
-    Input: state=1
-    Return: tensor([[[[0., .9, 0., 0.],
-                      [0., 0., 0., 0.],
-                      [0., 0., 0., 0.],
-                      [0., 0., 0., 0.]],
-                      repeat above matrix 2 more times
-                                       ]])
-        where .9 is the normalize color code of Red
-    '''
+
 
     def state_to_tensor(self, state):
         return(torch.tensor(state, dtype=torch.float).to(DEVICE))
     
-    def state_to_dqn_input(self, state:int)->torch.Tensor:
-        # create empty tensor[batch][channel][row][column].
-        # Converting 1 state, so batch is always 1.
-        # Channels = 3, Red Green Blue (RGB).
-        # FrozenLake map has 4 rows x 4 columns.
-        input_tensor = torch.zeros(1,1,10,9)
-
-        # convert state to row and column
-        r=math.floor(state/4)
-        c=state-r*4
-
-        # Set color for each channel. Normalize it. The color selected here is (R,G,B) = (245,66,120)
-        input_tensor[0][0][r][c] = 245/255
-        input_tensor[0][1][r][c] = 66/255
-        input_tensor[0][2][r][c] = 120/255
-        
-        # To see what the image looks like, uncomment out the following lines AND put a break point at the return statement.
-        # pic = input_tensor.squeeze()      # input_tensor[batch][channel][row][column] - use squeeze to remove the batch level
-        # pic = torch.movedim(pic, 0, 2)    # rearrange from [channel][row][column] to [row][column][channel]
-        # plt.imshow(pic)                   # plot the image
-        # plt.show()                        # show the image
-        
-        return input_tensor
-
-
-
     # Run the FrozeLake environment with the learned policy
     def test(self, episodes, is_slippery=False):
         # Create FrozenLake instance
@@ -307,7 +273,4 @@ if __name__ == '__main__':
 
     print(int(max_index))
 
-    print('jsut testingo out the git push branch features')
-    print('more tests')
-
-    print('even moret est')
+    

@@ -166,10 +166,8 @@ class Match3Env(gym.Env):
                     }
                 )
 
-            # print(reward) #openlater
             self.result_step += 1
             obs, infos = self.reset()
-            reward
 
             return obs, reward, episode_over, infos
         else:

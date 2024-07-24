@@ -35,12 +35,19 @@ for i in range(100):
 
         selected_action = int(input("put the move you want to do on the board: "))
         obs, reward, dones, infos = env.step(int(selected_action))
-
-
-
+        print("obs: ", obs)
+        
+        print("obs: ", obs[0])
+        print("obs shape: ", obs.shape)
+        print("reward: ", reward)
+        print("dones: ", dones)
+        print("infos: ", infos)
+ 
+ 
+ 
         print("Selected index:", selected_action)
         print("Reward of this action:", reward)
-
+ 
         matrix = np.array(env.return_state)
         display_matrix(old_matrix)
         display_matrix(matrix)

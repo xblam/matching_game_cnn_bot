@@ -29,7 +29,10 @@ class TestModel(unittest.TestCase):
 
 
     def test_training(self):
+
         game = Match3Env(90)
+        _last_obs, infos = game.reset()       
+        state = game.return_state
         num_actions = 161
 
         epsilon = 0
