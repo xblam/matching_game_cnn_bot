@@ -12,12 +12,12 @@ DEVICE =  torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 # Define model
 class DQN(nn.Module):
-    def __init__(self, out_actions):
+    def __init__(self, num_channels, out_actions):
         super().__init__()
 
         # this model is designed to take in inputs of rbg images with dimensinos 10x9
         self.conv_block1 = nn.Sequential(
-            nn.Conv2d(in_channels=3, out_channels=10, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels=num_channels, out_channels=10, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.Conv2d(in_channels=10, out_channels=10, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
@@ -36,6 +36,8 @@ class DQN(nn.Module):
         # if something happens and we dont input the batch_size, then we will just manually resize the array so that the model still runs
 
     def forward(self, x):
+        if len(x.shape) == 2:
+            x = torch.unsqueeze(x, 0)
         x = self.conv_block1(x)
         x = x.flatten()
         print(x.shape)  # Use this to determine input shape of the output layer.
@@ -310,7 +312,7 @@ class FrozenLakeDQL():
                 print() # Print a newline every 4 states
 
 if __name__ == '__main__':
-    model = DQN(161).to(DEVICE)
+    model = DQN(1, 161).to(DEVICE)
     matrix = np.array(([
     [14, 14, 2, 4, 3, 1, 4, 2, 4],
     [14, 14, 4, 3, 1, 2, 1, 3, 3],
@@ -322,29 +324,8 @@ if __name__ == '__main__':
     [1, 2, 1, 1, 3, 3, 1, 4, 1],
     [4, 1, 3, 2, 1, 2, 1, 5, 2],
     [3, 2, 1, 2, 4, 2, 3, 2, 1]
-],[
-    [14, 14, 2, 4, 3, 1, 4, 2, 4],
-    [14, 14, 4, 3, 1, 2, 1, 3, 3],
-    [3, 4, 1, 5, 2, 4, 1, 2, 5],
-    [5, 5, 4, 5, 2, 5, 5, 4, 4],
-    [4, 1, 2, 3, 1, 2, 3, 4, 2],
-    [4, 1, 4, 4, 2, 4, 1, 3, 4],
-    [2, 4, 3, 3, 5, 5, 4, 1, 2],
-    [1, 2, 1, 1, 3, 3, 1, 4, 1],
-    [4, 1, 3, 2, 1, 2, 1, 5, 2],
-    [3, 2, 1, 2, 4, 2, 3, 2, 1]
-],[
-    [14, 14, 2, 4, 3, 1, 4, 2, 4],
-    [14, 14, 4, 3, 1, 2, 1, 3, 3],
-    [3, 4, 1, 5, 2, 4, 1, 2, 5],
-    [5, 5, 4, 5, 2, 5, 5, 4, 4],
-    [4, 1, 2, 3, 1, 2, 3, 4, 2],
-    [4, 1, 4, 4, 2, 4, 1, 3, 4],
-    [2, 4, 3, 3, 5, 5, 4, 1, 2],
-    [1, 2, 1, 1, 3, 3, 1, 4, 1],
-    [4, 1, 3, 2, 1, 2, 1, 5, 2],
-    [3, 2, 1, 2, 4, 2, 3, 2, 1]
 ]))
+    print(matrix.shape)
     
     input_tensor = torch.tensor(matrix, dtype=torch.float).to(DEVICE)
 

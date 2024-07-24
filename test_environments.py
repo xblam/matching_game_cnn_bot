@@ -1,6 +1,7 @@
 import random
 from typing import Any, Dict, List, Optional, Tuple, Type, TypeVar, Union
 import numpy as np
+from model import *
 
 
 from gym_match3.envs.match3_env import Match3Env
@@ -15,13 +16,18 @@ _last_obs, infos = env.reset()
 dones = False
 action_space = infos["action_space"]
 
+model = DQN(161)
 for i in range(100):
     # Identify the indices where the value is 1
     indices_with_one = [index for index, value in enumerate(action_space) if value == 1]
     # Randomly select one of those indices
     if indices_with_one:
 
-        selected_action = random.choice(indices_with_one)
+        # selected_action = random.choice(indices_with_one)
+        input_tensor = torch.tensor(env.return_board(), dtype=torch.float).to(DEVICE)
+
+        selected_action = model(input_tensor).to(DEVICE)
+
         old_matrix = np.array(env.return_board())
         # selected_action = int(input("put the move you want to do on the board: "))
         print("Selected index:", selected_action)
