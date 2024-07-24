@@ -223,6 +223,6 @@ class Match3Env(gym.Env):
         self.renderer.render_board(self.__game.board)
         print(self.__game.board)
 
-    
+    @property
     def return_board(self):
         return (self.__game.board.board)

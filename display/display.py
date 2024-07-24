@@ -77,7 +77,10 @@ def display_matrix(matrix):
                 y = i * tile_size
                 canvas[y:y+tile_size, x:x+tile_size] = image
 
-    return canvas
+    # Display the resulting image
+    cv2.imshow('Canvas', canvas)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     display_matrix(matrix)

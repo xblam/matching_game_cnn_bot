@@ -7,7 +7,7 @@ import numpy as np
 from model import *
 from gym_match3.envs.match3_env import Match3Env
 
-class TestBoard(unittest.TestCase):
+class TestModel(unittest.TestCase):
     def model_3_layer_matrix(self):
        
        
@@ -46,7 +46,6 @@ class TestBoard(unittest.TestCase):
         [3, 2, 1, 2, 4, 2, 3, 2, 1]
     ]))
         model = DQN(len(matrix_3_channels.shape), 161).to(DEVICE)
-        print(matrix_3_channels.shape)
         input_tensor = torch.tensor(matrix_3_channels, dtype=torch.float).to(DEVICE)
 
         output = model(input_tensor)
@@ -68,33 +67,34 @@ class TestBoard(unittest.TestCase):
         
         # find a way to return what the model thinks is the actual prediction of the index of the move that we should make
         max_value, max_index = torch.max(output, dim=0)
-        print(float(max_value))
-        print(int(max_index))
+#        print(output)
+#        print(float(max_value))
+#        print(int(max_index))
 
-    def tet_training(self):
+
+
+    def test_training(self):
         game = Match3Env(90)
         num_actions = 161
 
-        epsilon = 1
+        epsilon = 0
         memory = ReplayMemory(1000)
 
         # make policy and target networks
-        policy_dqn = DQN(num_channels=1, out_actions=num_actions)
-        target_dqn = DQN(num_channels=1, out_actions=num_actions)
+        policy_dqn = DQN(num_channels=1, out_actions=num_actions).to(DEVICE)
+        target_dqn = DQN(num_channels=1, out_actions=num_actions).to(DEVICE)
 
         # make the target and policy network the same
         target_dqn.load_state_dict(policy_dqn.state_dict())
 
-
         # define the optimizer
-        self.optimizer = torch.optim.Adam(policy_dqn.parameters(), lr=0.001)
-
-        for i in range(1000):
+        for i in range(1):
             terminated = False      # True when agent falls in hole or reached goal
             truncated = False       # True when agent takes more than 200 actions
 
             # Agent navigates map until it falls into hole/reaches goal (terminated), or has taken 200 actions (truncated).
-            while(not terminated and not truncated):
+            # while(not terminated and not truncated):
+            for b in range(10):
 
                 # Select action based on epsilon-greedy
                 if random.random() < epsilon:
@@ -103,9 +103,14 @@ class TestBoard(unittest.TestCase):
                 else:
                     # select best action
                     with torch.no_grad():
-                        action = policy_dqn(game.return_board).argmax().item()
+                        # although this means that the action will always be the same for a given state, this would only happen if epsilon were equal to 0
+                        input_tensor = torch.tensor(game.return_board, dtype=torch.float).to(DEVICE)
+                        action = policy_dqn(input_tensor).argmax().item()
+                        print(policy_dqn(input_tensor))
+                        print(policy_dqn(input_tensor).argmax())
+                        print(action) 
 
-        print("working")
+
         
 if __name__ == '__main__':
     unittest.main()
