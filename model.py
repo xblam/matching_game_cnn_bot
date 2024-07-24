@@ -36,6 +36,7 @@ class DQN(nn.Module):
         # if something happens and we dont input the batch_size, then we will just manually resize the array so that the model still runs
 
     def forward(self, x):
+        # manually add a layer if inputted matrix is 2 dimensions, or without a batch
         if len(x.shape) == 2:
             x = torch.unsqueeze(x, 0)
         x = self.conv_block1(x)
@@ -65,13 +66,13 @@ class ReplayMemory():
 
 
 # FrozeLake Deep Q-Learning
-class FrozenLakeDQL():
+class Match3():
     # Hyperparameters (adjustable)
-    learning_rate_a = 0.001         # learning rate (alpha)
-    discount_factor_g = 0.9         # discount rate (gamma)
-    network_sync_rate = 10          # number of steps the agent takes before syncing the policy and target network
-    replay_memory_size = 1000       # size of replay memory
-    mini_batch_size = 32            # size of the training data set sampled from the replay memory
+    learning_rate_a = 0.001# learning rate (alpha)
+    discount_factor_g = 0. #discount rate (gamma)
+    network_sync_rate = 25 # number of steps the agent takes before syncing the policy and target network
+    replay_memory_size = 100000 # size of replay memory
+    mini_batch_size = 100 # size of the training data set sampled from the replay memory
 
     # Neural Network
     loss_fn = nn.MSELoss()          # NN Loss function. MSE=Mean Squared Error can be swapped to something else.
