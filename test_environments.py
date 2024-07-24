@@ -9,8 +9,8 @@ from display.display import display_matrix
 
 env = Match3Env(90)
 
-print(f"Total size of the game state{env.observation_space}")
-print(f"Number of actions in this game{env.action_space}")
+print(f"Total size of the game state: {env.observation_space}")
+print(f"Number of actions in this game: {env.action_space}")
 
 _last_obs, infos = env.reset()
 dones = False
@@ -34,7 +34,8 @@ for i in range(100):
         old_matrix = np.array(env.return_board())
 
         obs, reward, dones, infos = env.step(int(max_idx))
-        # not really sure what infos means
+
+
 
         # selected_action = int(input("put the move you want to do on the board: "))
         print("Selected index:", max_idx)
@@ -48,3 +49,7 @@ for i in range(100):
     else:
         print("No indices with value 1 found.")
         dones = True
+
+# getting the model to predict the values for the game
+
+# make the training functino for the model

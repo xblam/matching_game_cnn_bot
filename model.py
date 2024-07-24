@@ -68,52 +68,43 @@ class ReplayMemory():
 # FrozeLake Deep Q-Learning
 class Match3():
     # Hyperparameters (adjustable)
-    learning_rate_a = 0.001# learning rate (alpha)
-    discount_factor_g = 0. #discount rate (gamma)
-    network_sync_rate = 25 # number of steps the agent takes before syncing the policy and target network
-    replay_memory_size = 100000 # size of replay memory
-    mini_batch_size = 100 # size of the training data set sampled from the replay memory
+    learning_rate_a = 0.001
+    discount_factor_g = 0.9
+    network_sync_rate = 25
+    replay_memory_size = 100000 
+    mini_batch_size = 100 
 
-    # Neural Network
-    loss_fn = nn.MSELoss()          # NN Loss function. MSE=Mean Squared Error can be swapped to something else.
-    optimizer = None                # NN Optimizer. Initialize later.
+    loss_fn = nn.MSELoss() 
+    optimizer = None
 
-    ACTIONS = ['L','D','R','U']     # for printing 0,1,2,3 => L(eft),D(own),R(ight),U(p)
-
-    # Train the FrozeLake environment
-    def train(self, episodes, render=False, is_slippery=False):
-        # Create FrozenLake instance
+    def train(self, episodes, num_channels, render=False, is_slippery=False):
         env = gym.make('FrozenLake-v1', map_name="4x4", is_slippery=is_slippery, render_mode='human' if render else None)
-        num_states = env.observation_space.n
         num_actions = env.action_space.n
 
-        epsilon = 1 # 1 = 100% random actions
+        epsilon = 1
         memory = ReplayMemory(self.replay_memory_size)
 
-        # Create policy and target network.
-        policy_dqn = DQN(input_shape=3, out_actions=num_actions)
-        target_dqn = DQN(input_shape=3, out_actions=num_actions)
+        # make policy and target networks
+        policy_dqn = DQN(input_shape=num_channels, out_actions=num_actions)
+        target_dqn = DQN(input_shape=num_channels, out_actions=num_actions)
 
-        # Make the target and policy networks the same (copy weights/biases from one network to the other)
+        # make the target and policy network the same
         target_dqn.load_state_dict(policy_dqn.state_dict())
 
         print('Policy (random, before training):')
         self.print_dqn(policy_dqn)
 
-        # Policy network optimizer. "Adam" optimizer can be swapped to something else.
+        # define the optimizer
         self.optimizer = torch.optim.Adam(policy_dqn.parameters(), lr=self.learning_rate_a)
 
-        # List to keep track of rewards collected per episode. Initialize list to 0's.
+        # keep track of rewards collected each episode
         rewards_per_episode = np.zeros(episodes)
 
-        # List to keep track of epsilon decay
         epsilon_history = []
 
-        # Track number of steps taken. Used for syncing policy => target network.
         step_count=0
 
         for i in range(episodes):
-            state = env.reset()[0]  # Initialize to state 0
             terminated = False      # True when agent falls in hole or reached goal
             truncated = False       # True when agent takes more than 200 actions
 
@@ -123,7 +114,7 @@ class Match3():
                 # Select action based on epsilon-greedy
                 if random.random() < epsilon:
                     # select random action
-                    action = env.action_space.sample() # actions: 0=left,1=down,2=right,3=up
+                    action = np.randint(0,161)
                 else:
                     # select best action
                     with torch.no_grad():
