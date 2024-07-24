@@ -1,8 +1,5 @@
 
 import unittest
-import sys
-import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import numpy as np
 from model import *
 from gym_match3.envs.match3_env import Match3Env
@@ -23,6 +20,8 @@ class TestModel(unittest.TestCase):
         
         # find a way to return what the model thinks is the actual prediction of the index of the move that we should make
         max_value, max_index = torch.max(output, dim=0)
+        self.assertLess(max_index, 162)
+        self.assertLess(max_value, 1)
 #        print(output)
 #        print(float(max_value))
 #        print(int(max_index))
@@ -64,9 +63,7 @@ class TestModel(unittest.TestCase):
                         # although this means that the action will always be the same for a given state, this would only happen if epsilon were equal to 0
                         input_tensor = self.state_to_tensor(game.return_state)
                         action = policy_dqn(input_tensor).argmax().item()
-                        print(policy_dqn(input_tensor))
-                        print(policy_dqn(input_tensor).argmax())
-                        print(action) 
+        
 
 
         

@@ -1,12 +1,9 @@
 import gymnasium as gym
 import numpy as np
-import matplotlib.pyplot as plt
 from collections import deque
 import random
 import torch
 from torch import nn
-import torch.nn.functional as F
-import math
 from gym_match3.envs.match3_env import Match3Env
 
 
@@ -124,7 +121,7 @@ class Match3():
 
                 step_count+=1
                 if step_count > 50:
-                    terminated = True
+                    terminated = True  
 
                 rewards_per_episode[i] += reward
 
