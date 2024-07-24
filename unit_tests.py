@@ -9,7 +9,7 @@ from model import *
 class TestBoard(unittest.TestCase):
     def test_model_3_layer_matrix(self):
        
-        model = DQN(3, 161).to(DEVICE)
+       
         matrix_3_channels = np.array(([
         [14, 14, 2, 4, 3, 1, 4, 2, 4],
         [14, 14, 4, 3, 1, 2, 1, 3, 3],
@@ -44,7 +44,7 @@ class TestBoard(unittest.TestCase):
         [4, 1, 3, 2, 1, 2, 1, 5, 2],
         [3, 2, 1, 2, 4, 2, 3, 2, 1]
     ]))
-        
+        model = DQN(len(matrix_3_channels.shape), 161).to(DEVICE)
         print(matrix_3_channels.shape)
         input_tensor = torch.tensor(matrix_3_channels, dtype=torch.float).to(DEVICE)
 
@@ -55,10 +55,8 @@ class TestBoard(unittest.TestCase):
         print(float(max_value))
         print(int(max_index))
 
-
     def test_model_1d_matrix(self):
        
-        model = DQN(1, 161).to(DEVICE)
         matrix_1_channels = np.array(([
         [14, 14, 2, 4, 3, 1, 4, 2, 4],
         [14, 14, 4, 3, 1, 2, 1, 3, 3],
@@ -72,6 +70,7 @@ class TestBoard(unittest.TestCase):
         [3, 2, 1, 2, 4, 2, 3, 2, 1]
     ]))
         
+        model = DQN(1, 161).to(DEVICE)
         print(matrix_1_channels.shape)
         input_tensor = torch.tensor(matrix_1_channels, dtype=torch.float).to(DEVICE)
 

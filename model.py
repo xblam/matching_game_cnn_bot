@@ -40,7 +40,6 @@ class DQN(nn.Module):
             x = torch.unsqueeze(x, 0)
         x = self.conv_block1(x)
         x = x.flatten()
-        print(x.shape)  # Use this to determine input shape of the output layer.
         x = self.layer_stack(x)
         return x
 
