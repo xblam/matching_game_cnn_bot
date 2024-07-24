@@ -20,27 +20,27 @@ matrix = np.array([
     [3, 2, 1, 2, 4, 2, 3, 2, 1]
 ])
 
-
+image_files = {
+    1: r'C:\Users\CPU12297-local\Desktop\gym_match\display\1.png',
+    2: r'C:\Users\CPU12297-local\Desktop\gym_match\display\2.png',
+    3: r'C:\Users\CPU12297-local\Desktop\gym_match\display\3.png',
+    4: r'C:\Users\CPU12297-local\Desktop\gym_match\display\4.png',
+    5: r'C:\Users\CPU12297-local\Desktop\gym_match\display\5.png',
+    6: r'C:\Users\CPU12297-local\Desktop\gym_match\display\6.png',
+    7: r'C:\Users\CPU12297-local\Desktop\gym_match\display\7.png',
+    8: r'C:\Users\CPU12297-local\Desktop\gym_match\display\8.png',
+    9: r'C:\Users\CPU12297-local\Desktop\gym_match\display\9.png',
+    10: r'C:\Users\CPU12297-local\Desktop\gym_match\display\10.png',
+    11: r'C:\Users\CPU12297-local\Desktop\gym_match\display\11.png',
+    12: r'C:\Users\CPU12297-local\Desktop\gym_match\display\12.png',
+    13: r'C:\Users\CPU12297-local\Desktop\gym_match\display\13.png',
+    14: r'C:\Users\CPU12297-local\Desktop\gym_match\display\14.png'
+}
 
 def display_matrix(matrix):
     # Create a dictionary to store images for each number
     
-    image_files = {
-        1: r'C:\Users\CPU12297-local\Desktop\gym_game\gym_match\display\1.png',
-        2: r'C:\Users\CPU12297-local\Desktop\gym_game\gym_match\display\2.png',
-        3: r'C:\Users\CPU12297-local\Desktop\gym_game\gym_match\display\3.png',
-        4: r'C:\Users\CPU12297-local\Desktop\gym_game\gym_match\display\4.png',
-        5: r'C:\Users\CPU12297-local\Desktop\gym_game\gym_match\display\5.png',
-        6: r'C:\Users\CPU12297-local\Desktop\gym_game\gym_match\display\6.png',
-        7: r'C:\Users\CPU12297-local\Desktop\gym_game\gym_match\display\7.png',
-        8: r'C:\Users\CPU12297-local\Desktop\gym_game\gym_match\display\8.png',
-        9: r'C:\Users\CPU12297-local\Desktop\gym_game\gym_match\display\9.png',
-        10: r'C:\Users\CPU12297-local\Desktop\gym_game\gym_match\display\10.png',
-        11: r'C:\Users\CPU12297-local\Desktop\gym_game\gym_match\display\11.png',
-        12: r'C:\Users\CPU12297-local\Desktop\gym_game\gym_match\display\12.png',
-        13: r'C:\Users\CPU12297-local\Desktop\gym_game\gym_match\display\13.png',
-        14: r'C:\Users\CPU12297-local\Desktop\gym_game\gym_match\display\14.png'
-    }
+
     
     image_dict = {}
     
