@@ -224,5 +224,5 @@ class Match3Env(gym.Env):
         print(self.__game.board)
 
     @property
-    def return_board(self):
+    def return_state(self):
         return (self.__game.board.board)

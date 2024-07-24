@@ -8,59 +8,15 @@ from model import *
 from gym_match3.envs.match3_env import Match3Env
 
 class TestModel(unittest.TestCase):
-    def model_3_layer_matrix(self):
-       
-       
-        matrix_3_channels = np.array(([
-        [14, 14, 2, 4, 3, 1, 4, 2, 4],
-        [14, 14, 4, 3, 1, 2, 1, 3, 3],
-        [3, 4, 1, 5, 2, 4, 1, 2, 5],
-        [5, 5, 4, 5, 2, 5, 5, 4, 4],
-        [4, 1, 2, 3, 1, 2, 3, 4, 2],
-        [4, 1, 4, 4, 2, 4, 1, 3, 4],
-        [2, 4, 3, 3, 5, 5, 4, 1, 2],
-        [1, 2, 1, 1, 3, 3, 1, 4, 1],
-        [4, 1, 3, 2, 1, 2, 1, 5, 2],
-        [3, 2, 1, 2, 4, 2, 3, 2, 1]
-    ],[
-        [14, 14, 2, 4, 3, 1, 4, 2, 4],
-        [14, 14, 4, 3, 1, 2, 1, 3, 3],
-        [3, 4, 1, 5, 2, 4, 1, 2, 5],
-        [5, 5, 4, 5, 2, 5, 5, 4, 4],
-        [4, 1, 2, 3, 1, 2, 3, 4, 2],
-        [4, 1, 4, 4, 2, 4, 1, 3, 4],
-        [2, 4, 3, 3, 5, 5, 4, 1, 2],
-        [1, 2, 1, 1, 3, 3, 1, 4, 1],
-        [4, 1, 3, 2, 1, 2, 1, 5, 2],
-        [3, 2, 1, 2, 4, 2, 3, 2, 1]
-    ],[
-        [14, 14, 2, 4, 3, 1, 4, 2, 4],
-        [14, 14, 4, 3, 1, 2, 1, 3, 3],
-        [3, 4, 1, 5, 2, 4, 1, 2, 5],
-        [5, 5, 4, 5, 2, 5, 5, 4, 4],
-        [4, 1, 2, 3, 1, 2, 3, 4, 2],
-        [4, 1, 4, 4, 2, 4, 1, 3, 4],
-        [2, 4, 3, 3, 5, 5, 4, 1, 2],
-        [1, 2, 1, 1, 3, 3, 1, 4, 1],
-        [4, 1, 3, 2, 1, 2, 1, 5, 2],
-        [3, 2, 1, 2, 4, 2, 3, 2, 1]
-    ]))
-        model = DQN(len(matrix_3_channels.shape), 161).to(DEVICE)
-        input_tensor = torch.tensor(matrix_3_channels, dtype=torch.float).to(DEVICE)
-
-        output = model(input_tensor)
-        
-        # find a way to return what the model thinks is the actual prediction of the index of the move that we should make
-        max_value, max_index = torch.max(output, dim=0)
-        print(float(max_value))
-        print(int(max_index))
+    def state_to_tensor(self, state):
+        return(torch.tensor(state, dtype=torch.float).to(DEVICE))
 
     def test_model_1d_matrix(self):
         game = Match3Env(90)
 
         model = DQN(1, 161).to(DEVICE)
         
-        input_tensor = torch.tensor(game.return_board, dtype=torch.float).to(DEVICE)
+        input_tensor = self.state_to_tensor(game.return_state)
         print(input_tensor.shape)
 
         output = model(input_tensor)
@@ -70,7 +26,6 @@ class TestModel(unittest.TestCase):
 #        print(output)
 #        print(float(max_value))
 #        print(int(max_index))
-
 
 
     def test_training(self):
@@ -104,7 +59,7 @@ class TestModel(unittest.TestCase):
                     # select best action
                     with torch.no_grad():
                         # although this means that the action will always be the same for a given state, this would only happen if epsilon were equal to 0
-                        input_tensor = torch.tensor(game.return_board, dtype=torch.float).to(DEVICE)
+                        input_tensor = self.state_to_tensor(game.return_state)
                         action = policy_dqn(input_tensor).argmax().item()
                         print(policy_dqn(input_tensor))
                         print(policy_dqn(input_tensor).argmax())

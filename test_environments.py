@@ -25,13 +25,13 @@ for i in range(100):
         # this is just here temporarily BUT MAKE SURE THE MODEL GETS CHANGED AFTER EVERY MOVE OR ELSE IF IT OUTPUTS AN ILLEGAL MOVE YOU WILL BE STUCK FOREVER
         model = DQN(1, 161).to(DEVICE)
         # selected_action = random.choice(indices_with_one)
-        input_tensor = torch.tensor(env.return_board, dtype=torch.float).to(DEVICE)
+        input_tensor = torch.tensor(env.return_state, dtype=torch.float).to(DEVICE)
 
         output_tensor = model(input_tensor)
 
         max_val, max_idx = torch.max(output_tensor, dim = 0)
 
-        old_matrix = np.array(env.return_board)
+        old_matrix = np.array(env.return_state)
 
         selected_action = int(input("put the move you want to do on the board: "))
         obs, reward, dones, infos = env.step(int(selected_action))
@@ -41,7 +41,7 @@ for i in range(100):
         print("Selected index:", selected_action)
         print("Reward of this action:", reward)
 
-        matrix = np.array(env.return_board)
+        matrix = np.array(env.return_state)
         display_matrix(old_matrix)
         display_matrix(matrix)
 
