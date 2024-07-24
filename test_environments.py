@@ -16,7 +16,7 @@ _last_obs, infos = env.reset()
 dones = False
 action_space = infos["action_space"]
 
-model = DQN(161)
+model = DQN(1, 161).to(DEVICE)
 for i in range(100):
     # Identify the indices where the value is 1
     indices_with_one = [index for index, value in enumerate(action_space) if value == 1]
@@ -26,13 +26,15 @@ for i in range(100):
         # selected_action = random.choice(indices_with_one)
         input_tensor = torch.tensor(env.return_board(), dtype=torch.float).to(DEVICE)
 
-        selected_action = model(input_tensor).to(DEVICE)
+        output_tensor = model(input_tensor)
+
+        max_val, max_idx = torch.max(output_tensor, dim = 0)
 
         old_matrix = np.array(env.return_board())
         # selected_action = int(input("put the move you want to do on the board: "))
-        print("Selected index:", selected_action)
+        print("Selected index:", max_idx)
 
-        obs, reward, dones, infos = env.step(selected_action)
+        obs, reward, dones, infos = env.step(max_idx)
         # not really sure what infos means
 
         print("Reward of this action:", reward)

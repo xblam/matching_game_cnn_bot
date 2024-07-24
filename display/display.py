@@ -80,3 +80,6 @@ def display_matrix(matrix):
     cv2.imshow('Canvas', canvas)
     cv2.waitKey(0)
     cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    display_matrix(matrix)

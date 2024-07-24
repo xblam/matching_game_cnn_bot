@@ -73,6 +73,7 @@ class TestBoard(unittest.TestCase):
         model = DQN(1, 161).to(DEVICE)
         print(matrix_1_channels.shape)
         input_tensor = torch.tensor(matrix_1_channels, dtype=torch.float).to(DEVICE)
+        print(input_tensor.shape)
 
         output = model(input_tensor)
         
