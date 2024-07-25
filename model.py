@@ -43,11 +43,6 @@ class DQN(nn.Module):
         x = self.layer_stack(x)
         return x
 
-# Use this to check if DQN is valid
-# temp_dqn = DQN(3, 4) # (3 channels, 4 actions)
-# temp_tensor = torch.randn(1,3,4,4)  # (batch, channel, row, column)
-# temp_dqn(temp_tensor)
-
 
 # Define memory for Experience Replay
 class ReplayMemory():

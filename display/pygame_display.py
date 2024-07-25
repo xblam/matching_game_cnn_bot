@@ -5,27 +5,11 @@ import numpy as np
 # Initialize Pygame
 
 
-image_files = {
-    1: r'./display/1.png',
-    2: r'./display/2.png',
-    3: r'./display/3.png',
-    4: r'./display/4.png',
-    5: r'./display/5.png',
-    6: r'./display/6.png',
-    7: r'./display/7.png',
-    8: r'./display/8.png',
-    9: r'./display/9.png',
-    10: r'./display/10.png',
-    11: r'./display/11.png',
-    12: r'./display/12.png',
-    13: r'./display/13.png',
-    14: r'./display/14.png'
-}
 
 # Define a matrix (example: 1 for image1, 2 for image2)
 matrix_test = np.array(([
     [14, 14, 2, 4, 3, 1, 4, 2, 4],
-    [14, 14, 4, 3, 1, 2, 1, 3, 3],
+    [14, 14, 2, 3, 1, 2, 1, 3, 3],
     [3, 4, 1, 5, 2, 4, 1, 2, 5],
     [5, 5, 4, 5, 2, 5, 5, 4, 4],
     [4, 1, 2, 3, 1, 2, 3, 4, 2],
@@ -37,9 +21,9 @@ matrix_test = np.array(([
 ]))
 
 matrix_test2 = np.array(([
-    [14, 13, 2, 4, 3, 1, 4, 2, 4],
-    [14, 14, 4, 3, 1, 2, 1, 3, 3],
-    [3, 4, 1, 5, 2, 4, 1, 2, 5],
+    [14, 14, 2, 4, 3, 1, 4, 2, 4],
+    [14, 14, 1, 3, 1, 2, 1, 3, 3],
+    [3, 4, 2, 5, 2, 4, 1, 2, 5],
     [5, 5, 4, 5, 2, 5, 5, 4, 4],
     [4, 1, 2, 3, 1, 2, 3, 4, 2],
     [4, 1, 4, 4, 2, 4, 1, 3, 4],
@@ -52,9 +36,8 @@ matrix_test2 = np.array(([
 
 class Display():
     def __init__(self, matrix, rows = 10, cols = 9, cell_size = 64):
-        pygame.init()
-        self.rows = rows
-        self.cols = cols
+        # pygame.init()
+        self.rows, self.cols = matrix.shape
         self.cell_size = cell_size
         self.matrix = matrix
 
@@ -63,8 +46,9 @@ class Display():
         self.window = pygame.display.set_mode((self.window_width, self.window_height))
 
         self.image_dict = {}
-        for i in range(14):
+        for i in range(15):
             self.image_dict[i+1] = pygame.transform.scale(pygame.image.load(fr'./display/{i+1}.png'),(cell_size, cell_size))
+        self.update_display(self.matrix)
 
     def update_display(self, new_matrix):
         self.window.fill((255, 255, 255))
@@ -80,16 +64,48 @@ class Display():
         # Update the display
         pygame.display.flip()
 
+    def animate_switch(self, start_pos, end_pos, steps=30):
+        # self.window.fill((255, 255, 255))
+
+        row, col = start_pos
+        row2, col2 = end_pos
+
+        # these are the two images that I will be switching
+        white = self.image_dict.get(15)
+
+        image1 = self.image_dict.get(self.matrix[row][col])
+        image2 = self.image_dict.get(self.matrix[row2][col2])
+
+        for step in range(steps):
+            
+            # Calculate intermediate positions
+            inter_row = row * self.cell_size + (row2 - row) * self.cell_size * step / steps
+            inter_col = col * self.cell_size + (col2 - col) * self.cell_size * step / steps
+            inter_row2 = row2 * self.cell_size + (row - row2) * self.cell_size * step / steps
+            inter_col2 = col2 * self.cell_size + (col - col2) * self.cell_size * step / steps
+            
+            # Draw intermediate positions
+            self.window.blit(white, (inter_col, inter_row))
+            self.window.blit(image1, (inter_col, inter_row))
+            
+            self.window.blit(image2, (inter_col2, inter_row2))
+
+            pygame.display.flip()
+            pygame.time.wait(20)  # Adjust the wait time for smoother/faster animation
+
 
 if __name__ == "__main__":
     display = Display(matrix_test)
-    display.update_display(matrix_test2)
-    
+    animate = True
     # run the display. we can update the code and stuff beneath
     running = True
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+        if animate:
+
+            display.animate_switch((1,1),(1,2))
+            animate = False
 
        
