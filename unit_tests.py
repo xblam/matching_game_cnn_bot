@@ -65,7 +65,14 @@ class TestModel(unittest.TestCase):
                         input_tensor = self.state_to_tensor(game.return_state)
                         action = policy_dqn(input_tensor).argmax().item()
         
-
+    def test_display(self):
+        display = Display(matrix_test)
+        animate = True
+        # run the display. we can update the code and stuff beneath
+        display.animate_switch((1,1),(1,2))
+        display.animate_switch((3,5),(3,6))
+        pygame.quit()
+        sys.exit()
 
         
 if __name__ == '__main__':

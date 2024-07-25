@@ -44,7 +44,7 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
-
+    matrix = np.array(env.return_state)
     for i in range(100):
         # Identify the indices where the value is 1
         indices_with_one = [index for index, value in enumerate(action_space) if value == 1]
@@ -61,6 +61,10 @@ while running:
             # selected_action = int(input("Put the move you want to do on the board: "))
             selected_action = np.random.randint(0,161)
 
+
+            (row1,col1), (row2,col2) = action_to_coords(selected_action)
+            display.animate_switch((row1,col1),(row2,col2), matrix)
+
             obs, reward, dones, infos = env.step(int(selected_action))
 
             print("obs:", obs)
@@ -69,19 +73,18 @@ while running:
             print("reward:", reward)
             print("dones:", dones)
             print("infos:", infos)
-            (x1,y1), (x2,y2) = action_to_coords(selected_action)
-            display.animate_switch((x1,y1),(x2,y2))
-            matrix = np.array(env.return_state)
 
+
+            matrix = np.array(env.return_state)
             display.update_display(matrix)
 
             print("Selected index:", selected_action)
             print("Reward of this action:", reward)
 
-        pygame.time.wait(1000)  # Small delay to make the loop more manageable
+        pygame.time.wait(500)  # Small delay to make the loop more manageable
 
-pygame.quit()
-sys.exit()
+    pygame.quit()
+    sys.exit()
 
 #     else:
 #         print("No indices with value 1 found.")

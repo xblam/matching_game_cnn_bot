@@ -58,13 +58,14 @@ class Display():
             for col in range(self.cols):
                 image = self.image_dict.get(new_matrix[row][col])
                 if image:
-                    x, y = col * self.cell_size, row * self.cell_size
-                    self.window.blit(image, (x, y))
+                    x, y = row * self.cell_size, col * self.cell_size
+                    self.window.blit(image, (y, x))
 
         # Update the display
         pygame.display.flip()
-
-    def animate_switch(self, start_pos, end_pos, steps=30):
+    # the start and end positions that we are given will be the matrices positions.
+    def animate_switch(self, start_pos, end_pos,matrix, steps=30):
+    
         # self.window.fill((255, 255, 255))
 
         row, col = start_pos
@@ -73,8 +74,8 @@ class Display():
         # these are the two images that I will be switching
         white = self.image_dict.get(15)
 
-        image1 = self.image_dict.get(self.matrix[row][col])
-        image2 = self.image_dict.get(self.matrix[row2][col2])
+        image1 = self.image_dict.get(matrix[row][col])
+        image2 = self.image_dict.get(matrix[row2][col2])
 
         for step in range(steps):
             
@@ -86,12 +87,12 @@ class Display():
             
             # Draw intermediate positions
             self.window.blit(white, (inter_col, inter_row))
+            self.window.blit(white, (inter_col2, inter_row2))
             self.window.blit(image1, (inter_col, inter_row))
-            
             self.window.blit(image2, (inter_col2, inter_row2))
 
             pygame.display.flip()
-            pygame.time.wait(20)  # Adjust the wait time for smoother/faster animation
+            pygame.time.wait(10)  # Adjust the wait time for smoother/faster animation
 
 
 if __name__ == "__main__":
@@ -105,7 +106,7 @@ if __name__ == "__main__":
                 running = False
         if animate:
 
-            display.animate_switch((1,1),(1,2))
+            display.animate_switch((1,1),(1,2), display.matrix)
             animate = False
 
        
