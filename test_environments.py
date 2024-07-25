@@ -45,38 +45,41 @@ while running:
         if event.type == pygame.QUIT:
             running = False
     matrix = np.array(env.return_game_matrix)
-    for i in range(100):
+    for i in range(10):
         # Identify the indices where the value is 1
         indices_with_one = [index for index, value in enumerate(action_space) if value == 1]
 
         # Randomly select one of those indices
         if indices_with_one:
             # Temporary model instantiation (replace with actual model loading if necessary)
-            model = DQN(1, 161).to(DEVICE)
+            # model = DQN(1, 161).to(DEVICE)
 
-            input_tensor = torch.tensor(env.return_game_matrix, dtype=torch.float).to(DEVICE)
-            output_tensor = model(input_tensor)
+            # input_tensor = torch.tensor(env.return_game_matrix, dtype=torch.float).to(DEVICE)
+            # output_tensor = model(input_tensor)
 
-            max_val, max_idx = torch.max(output_tensor, dim=0)
+            # max_val, max_idx = torch.max(output_tensor, dim=0)
 
             # in the future I will let the model choose the selected action here
             # selected_action = int(input("Put the move you want to do on the board: "))
-            selected_action = np.random.randint(0,161)
+            selected_action = random.choice(indices_with_one)
 
             (row1,col1), (row2,col2) = action_to_coords(selected_action)
 
             obs, reward, dones, infos = env.step(int(selected_action))
-            print("obs:", obs)
-            print("obs[0]:", obs[0])
-            print("obs shape:", obs.shape)
-            print("reward:", reward)
-            print("dones:", dones)
-            print("infos:", infos)
+            print("1", obs[1])
+            print("2", obs[2])
+            print("3:", obs[3])
+            print("4:", obs[4])
+            print("5:", obs[5])
+            print("monster:", obs[13])
 
-            if (reward['score'] != 0):
-                display.animate_switch((row1,col1),(row2,col2), matrix)
-                matrix = np.array(env.return_game_matrix)
-                display.update_display(matrix)
+            display.animate_switch((row1,col1),(row2,col2), matrix)
+            matrix = np.array(env.return_game_matrix)
+            display.update_display(matrix)
+
+            action_space = infos['action_space']
+
+            print(action_space.shape)
 
 
 

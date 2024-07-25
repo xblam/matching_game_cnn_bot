@@ -60,7 +60,7 @@ class ReplayMemory():
 
 
 # FrozeLake Deep Q-Learning
-class Match3():
+class Match3AI():
     # Hyperparameters (adjustable)
     learning_rate_a = 0.001
     discount_factor_g = 0.9
@@ -81,7 +81,6 @@ class Match3():
         policy_dqn = DQN(input_shape=num_channels, out_actions=num_actions)
         target_dqn = DQN(input_shape=num_channels, out_actions=num_actions)
         target_dqn.load_state_dict(policy_dqn.state_dict())
-
 
         self.optimizer = torch.optim.Adam(policy_dqn.parameters(), lr=self.learning_rate_a)
 
