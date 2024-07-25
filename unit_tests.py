@@ -3,6 +3,7 @@ import unittest
 import numpy as np
 from model import *
 from gym_match3.envs.match3_env import Match3Env
+from display.pygame_display import *
 
 class TestModel(unittest.TestCase):
     def state_to_tensor(self, state):

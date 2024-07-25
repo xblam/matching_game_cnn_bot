@@ -4,6 +4,7 @@ from model import *
 
 from gym_match3.envs.match3_env import Match3Env
 from display.display import display_matrix
+from display.pygame_display import *
 
 env = Match3Env(90)
 
@@ -13,6 +14,8 @@ print(f"Number of actions in this game: {env.action_space}")
 _last_obs, infos = env.reset()
 dones = False
 action_space = infos["action_space"]
+
+
 
 for i in range(100):
     # Identify the indices where the value is 1
@@ -35,7 +38,7 @@ for i in range(100):
         obs, reward, dones, infos = env.step(int(selected_action))
         print("obs: ", obs)
         
-        print("obs: ", obs[0])
+        print("obs: ", obs[0]) # it is the collection of 26 observations about the board, in the form of stacked matrices
         print("obs shape: ", obs.shape)
         print("reward: ", reward)
         print("dones: ", dones)
