@@ -14,7 +14,7 @@ class TestModel(unittest.TestCase):
 
         model = DQN(1, 161).to(DEVICE)
         
-        input_tensor = self.state_to_tensor(game.return_state)
+        input_tensor = self.state_to_tensor(game.return_game_matrix)
         print(input_tensor.shape)
 
         output = model(input_tensor)
@@ -32,7 +32,7 @@ class TestModel(unittest.TestCase):
 
         game = Match3Env(90)
         _last_obs, infos = game.reset()       
-        state = game.return_state
+        state = game.return_game_matrix
         num_actions = 161
 
         epsilon = 0
@@ -62,7 +62,7 @@ class TestModel(unittest.TestCase):
                     # select best action
                     with torch.no_grad():
                         # although this means that the action will always be the same for a given state, this would only happen if epsilon were equal to 0
-                        input_tensor = self.state_to_tensor(game.return_state)
+                        input_tensor = self.state_to_tensor(game.return_game_matrix)
                         action = policy_dqn(input_tensor).argmax().item()
         
     def test_display(self):

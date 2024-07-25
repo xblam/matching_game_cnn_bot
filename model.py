@@ -93,7 +93,7 @@ class Match3():
 
         for i in range(episodes):
             _last_obs, infos = env.reset()
-            state = env.return_state
+            state = env.return_game_matrix
             terminated = False # agent took too many steps
 
             # have to see if there is any way to tell if the player's hp is under 0 or the creep's hp is under 0 so then we end the game
