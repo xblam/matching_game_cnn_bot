@@ -150,10 +150,7 @@ class Match3Env(gym.Env):
             else:
                 reward.update(
                     {
-                        "game": (
-                            -30
-                            - 1
-                            * sum(
+                        "game": (-30- 1 * sum(
                                 [
                                     mon.get_hp()
                                     for mon in self.__game.list_monsters

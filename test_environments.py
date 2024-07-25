@@ -23,7 +23,6 @@ matrix = np.array(env.return_game_matrix)
 display = Display(matrix)
 
 def action_to_coords(action):
-    coords_to_switch = []
     if action < 80:
         row = action//8
         col = action%8
@@ -65,17 +64,20 @@ while running:
 
             (row1,col1), (row2,col2) = action_to_coords(selected_action)
 
-            obs, reward, dones, infos = env.step(int(selected_action))
+            obs, reward, dones, infos = env.step(selected_action)
             print("1", obs[1])
             print("2", obs[2])
             print("3:", obs[3])
             print("4:", obs[4])
             print("5:", obs[5])
             print("monster:", obs[13])
+            print('legal_action:', obs[24])
+            print(action_space)
 
-            display.animate_switch((row1,col1),(row2,col2), matrix)
+            # display and update matrix
+            # display.animate_switch((row1,col1),(row2,col2), matrix)
             matrix = np.array(env.return_game_matrix)
-            display.update_display(matrix)
+            # display.update_display(matrix)
 
             action_space = infos['action_space']
 
