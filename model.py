@@ -69,7 +69,7 @@ class Match3AI():
     learning_rate = 0.001
     discount = 0.9
     network_sync_rate = 25
-    memory_size = 10000
+    memory_size = 100000
     mini_batch_size = 100
 
     loss_fn = nn.MSELoss() 
@@ -81,7 +81,6 @@ class Match3AI():
         # give the color of the gems (1-5), the position of the monster(13)
         return obs[[1,2,3,4,5,13]] # removed legal actions since it doesnt seem to be doing much
 
-    
     
     def action_to_coords(self, action):
         if action < 80:
@@ -98,7 +97,7 @@ class Match3AI():
 
         return coord1, coord2
     
-    def train(self, episodes, num_channels, log = False, render=False, is_slippery=False):
+    def train(self, episodes, num_channels, log = False, display = False, render=False, is_slippery=False):
         num_actions = 161
         epsilon = 1
 
@@ -113,7 +112,6 @@ class Match3AI():
 
         rewards_per_episode = np.zeros(episodes)
 
-
         step_count=0
 
         # each episode represents one life that the system plays
@@ -124,14 +122,16 @@ class Match3AI():
             )
         for i in range(episodes):
             print("NEW LIFE STARTED")
+
+            # in the future when the model is doing better, switch this so that the level changes after every life
             env = Match3Env(90)
             obs, infos = env.reset()
             state = self.get_state(obs)
             pygame.init()
-
-            # Initialize the display with the initial state
-            # matrix = np.array(env.return_game_matrix)
-            # display = Display(matrix)
+            if display:
+                # Initialize the display with the initial state
+                matrix = np.array(env.return_game_matrix)
+                display = Display(matrix)
             damage = 0
 
             # have to see if there is any way to tell if the player's hp is under 0 or the creep's hp is under 0 so then we end the game
@@ -148,23 +148,23 @@ class Match3AI():
                         input_tensor = state.to(DEVICE)
                         action = policy_dqn(input_tensor).argmax().item()
 
-                # animate the change
-                # (row1,col1), (row2,col2) = self.action_to_coords(action)
-                # display.animate_switch((row1,col1),(row2,col2), matrix)
-
-                # take the action and observe the next state and reward
-                # # XBLAM probably have to see what the game environment returns to set up these figures
+                # take action and get new state
                 obs, reward, episode_over, infos = env.step(action)
+                new_state = self.get_state(obs)
 
                 pts_reward = reward['score'] + reward['match_damage_on_monster']*10 + reward['power_damage_on_monster']*10
                 damage += reward['damage_on_user']
                 step_count+=1
 
-                # obs has been updated so now we can get the new state
-                new_state = self.get_state(obs)
-                # matrix = np.array(env.return_game_matrix)
-                # display.update_display(matrix)
-                # pygame.time.wait(100)
+                if display:
+                    # animate the change
+                    (row1,col1), (row2,col2) = self.action_to_coords(action)
+                    display.animate_switch((row1,col1),(row2,col2), matrix)
+
+                    # update the matrix and display new state
+                    matrix = np.array(env.return_game_matrix)
+                    display.update_display(matrix)
+                    pygame.time.wait(100)
 
                 # store the replay in memory - probably need to fine tune what we actually want to store
                 memory.append((state, action, new_state, pts_reward, episode_over))
@@ -194,14 +194,12 @@ class Match3AI():
                     target_dqn.load_state_dict(policy_dqn.state_dict())
                     step_count=0
             
-            print("total reward of episode: " , rewards_per_episode)
             if log:
                 wandb.log({
-                    "reward": rewards_per_episode[i],
+                    "running average reward (last 10)": np.sum(rewards_per_episode[-10:])/10,
                     "game_no": i,
                     "epsilon": epsilon
                 })
-
 
         env.close()
         torch.save(policy_dqn.state_dict(), "gym_match3.pt")
@@ -211,49 +209,41 @@ class Match3AI():
             sum_rewards[x] = np.sum(rewards_per_episode[max(0, x-100):(x+1)])
 
     def optimize(self, mini_batch, policy_dqn, target_dqn):
-
-        current_q_list = []
+        # make the policy
+        policy_q_list = []
         target_q_list = []
         # state and new state will just be the entire board for now
         for state, action, new_state, pts_reward, episode_over in mini_batch:
 
             if episode_over:
-                # if this runs, then we just make the target the reward we just got
-                target = torch.tensor([pts_reward]).to(DEVICE)
+                target = torch.tensor([pts_reward]).to(DEVICE) # target is the value that we want the policy network (the one doing the estimating) to have
             else:
-                # otherwise choose the best action
                 with torch.no_grad():
-                    # since new_state is a tensor, we will save it into this
                     input_tensor = new_state.to(DEVICE)
                     target = torch.tensor(
                         # make the new state into a tensor input
                         pts_reward + self.discount * target_dqn(input_tensor).max()
                     ).to(DEVICE)
 
-            # Get the current set of Q values
+            # Get the q value for state from the policy network
             input_tensor = torch.tensor(state, dtype=torch.float).to(DEVICE)
-            current_q = policy_dqn(input_tensor)
-            current_q_list.append(current_q)
+            policy_q = policy_dqn(input_tensor)
+            policy_q_list.append(policy_q)
 
-            # Get the target set of Q values
-            input_tensor = torch.tensor(state, dtype=torch.float).to(DEVICE)
+            # get the same value for the target network
             target_q = target_dqn(input_tensor)
-            
-            # Adjust the specific action to the target that was just calculated. 
-            # Target_q[batch][action], hardcode batch to 0 because there is only 1 batch.
-            target_q[action] = target
+            target_q[action] = target # but for the action that we just did, we want to manually adjust the q-value of that action state pair
             target_q_list.append(target_q)
 
         # Compute loss for the whole minibatch
-        loss = self.loss_fn(torch.stack(current_q_list), torch.stack(target_q_list))
+        loss = self.loss_fn(torch.stack(policy_q_list), torch.stack(target_q_list))
 
         # Optimize the model
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
 
-    def state_to_tensor(self, state):
-        return(torch.tensor(state, dtype=torch.float).to(DEVICE))
+
     
     # Run the FrozeLake environment with the learned policy
     def test(self, episodes, is_slippery=False):
