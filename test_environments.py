@@ -63,8 +63,11 @@ while running:
             selected_action = random.choice(indices_with_one)
 
             (row1,col1), (row2,col2) = action_to_coords(selected_action)
-
-            obs, reward, dones, infos = env.step(selected_action)
+            # obs is a 26,10,9 tensor, with each layer representing an observation (e.g layer of greens, layer of blues, layer of monter, layer of each powerup)
+            # reward is a dictionary with score, cancel_score, creapt_pu_score, match_damage_on_monster, power_damage_on_monster, and damage_on_user keys
+            # episode over just signifies whether or not the player/creep has died
+            # infos is just the dictionary containing the action space of moves that would result in a match
+            obs, reward, episode_over, infos = env.step(selected_action)
             print("1", obs[1])
             print("2", obs[2])
             print("3:", obs[3])
@@ -73,6 +76,8 @@ while running:
             print("monster:", obs[13])
             print('legal_action:', obs[24])
             print(action_space)
+            print('dones', dones)
+            print("infos: ", infos)
 
             # display and update matrix
             # display.animate_switch((row1,col1),(row2,col2), matrix)

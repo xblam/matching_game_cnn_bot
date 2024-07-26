@@ -7,6 +7,7 @@ import time
 from torch import nn
 from gym_match3.envs.match3_env import Match3Env
 from display.pygame_display import *
+import wandb
 
 
 DEVICE =  torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -65,10 +66,10 @@ class ReplayMemory():
 class Match3AI():
 
     # Hyperparameters (adjustable)
-    learning_rate_a = 0.001
-    discount_factor_g = 0.9
+    learning_rate = 0.001
+    discount = 0.9
     network_sync_rate = 25
-    replay_memory_size = 10000
+    memory_size = 10000
     mini_batch_size = 100
 
     loss_fn = nn.MSELoss() 
@@ -76,7 +77,11 @@ class Match3AI():
 
     def get_state(self, obs):
         # will add the other matrices representing the bomsb and stuff later, but right now just make sure that this shit runs
-        return obs[[1,2,3,4,5,13,24]]
+
+        # give the color of the gems (1-5), the position of the monster(13)
+        return obs[[1,2,3,4,5,13]] # removed legal actions since it doesnt seem to be doing much
+
+    
     
     def action_to_coords(self, action):
         if action < 80:
@@ -93,26 +98,30 @@ class Match3AI():
 
         return coord1, coord2
     
-    def train(self, episodes, num_channels, render=False, is_slippery=False):
+    def train(self, episodes, num_channels, log = False, render=False, is_slippery=False):
         num_actions = 161
         epsilon = 1
-        memory = ReplayMemory(self.replay_memory_size)
+
+        memory = ReplayMemory(self.memory_size)
 
         # make policy and target networks
         policy_dqn = DQN(in_channels=num_channels, out_actions=num_actions).to(DEVICE)
         target_dqn = DQN(in_channels=num_channels, out_actions=num_actions).to(DEVICE)
         target_dqn.load_state_dict(policy_dqn.state_dict())
 
-        self.optimizer = torch.optim.Adam(policy_dqn.parameters(), lr=self.learning_rate_a)
+        self.optimizer = torch.optim.Adam(policy_dqn.parameters(), lr=self.learning_rate)
 
         rewards_per_episode = np.zeros(episodes)
 
-        epsilon_history = []
 
         step_count=0
 
         # each episode represents one life that the system plays
-
+        if log:
+            wandb.init(
+            # Set the wandb project where this run will be logged
+                project="match3"
+            )
         for i in range(episodes):
             print("NEW LIFE STARTED")
             env = Match3Env(90)
@@ -121,60 +130,53 @@ class Match3AI():
             pygame.init()
 
             # Initialize the display with the initial state
-            matrix = np.array(env.return_game_matrix)
-            display = Display(matrix)
+            # matrix = np.array(env.return_game_matrix)
+            # display = Display(matrix)
             damage = 0
-
-
-            terminated = False # agent took too many steps
 
             # have to see if there is any way to tell if the player's hp is under 0 or the creep's hp is under 0 so then we end the game
             # will probably make it so we end the game if there is more than 50 moves and we still have not won or lost yet
 
-            # while(not terminated): # for each step in the episode
-            while not terminated:
-
-
-                if random.random() < epsilon:
+            episode_over = False
+            # each step in game
+            while not episode_over:
+                if np.random.rand() < epsilon:
                     action = np.random.randint(0,161)
                 else:
-                    with torch.no_grad(): # not really sure why with torch.no_grad is needed
+                    with torch.no_grad():
                         # make sure you put the entirity of all of the layers that you want to pass here
-                        input_tensor = torch.tensor(state, dtype=torch.float).to(DEVICE)
+                        input_tensor = state.to(DEVICE)
                         action = policy_dqn(input_tensor).argmax().item()
 
                 # animate the change
-                (row1,col1), (row2,col2) = self.action_to_coords(action)
-                display.animate_switch((row1,col1),(row2,col2), matrix)
+                # (row1,col1), (row2,col2) = self.action_to_coords(action)
+                # display.animate_switch((row1,col1),(row2,col2), matrix)
 
                 # take the action and observe the next state and reward
                 # # XBLAM probably have to see what the game environment returns to set up these figures
-                obs, reward, dones, infos = env.step(action)
+                obs, reward, episode_over, infos = env.step(action)
 
                 pts_reward = reward['score'] + reward['match_damage_on_monster']*10 + reward['power_damage_on_monster']*10
                 damage += reward['damage_on_user']
                 step_count+=1
 
-
-
-                if damage > 20:
-                    terminated = True
-
                 # obs has been updated so now we can get the new state
                 new_state = self.get_state(obs)
-                matrix = np.array(env.return_game_matrix)
-                display.update_display(matrix)
-                pygame.time.wait(100)
+                # matrix = np.array(env.return_game_matrix)
+                # display.update_display(matrix)
+                # pygame.time.wait(100)
 
                 # store the replay in memory - probably need to fine tune what we actually want to store
-                memory.append((state, action, new_state, pts_reward, terminated))
-                # update the state and step count and reward of the period
+                memory.append((state, action, new_state, pts_reward, episode_over))
 
+                # update the state and step count and reward of the current game
+                state = new_state
                 rewards_per_episode[i] += pts_reward
                 print("damage: ", damage)
                 print("pts_reward: ", pts_reward)
-                print(rewards_per_episode[i])
+                print("current reward in episode: ", rewards_per_episode[i])
                 print("rewards: ", reward)
+                print("steps since last sync: ", step_count)
 
             # Check if enough experience has been collected and if at least 1 reward has been collected
             # change this because we could probably implement it so that we only match to where there is a valid move
@@ -185,7 +187,6 @@ class Match3AI():
 
                 # Decay epsilon
                 epsilon = max(epsilon - 1/episodes, 0)
-                epsilon_history.append(epsilon)
 
                 # sync the policy network with the target network after certain amount of movse
                 if step_count > self.network_sync_rate:
@@ -194,6 +195,13 @@ class Match3AI():
                     step_count=0
             
             print("total reward of episode: " , rewards_per_episode)
+            if log:
+                wandb.log({
+                    "reward": rewards_per_episode[i],
+                    "game_no": i,
+                    "epsilon": epsilon
+                })
+
 
         env.close()
         torch.save(policy_dqn.state_dict(), "gym_match3.pt")
@@ -207,18 +215,19 @@ class Match3AI():
         current_q_list = []
         target_q_list = []
         # state and new state will just be the entire board for now
-        for state, action, new_state, pts_reward, terminated in mini_batch:
+        for state, action, new_state, pts_reward, episode_over in mini_batch:
 
-            if terminated:
+            if episode_over:
                 # if this runs, then we just make the target the reward we just got
                 target = torch.tensor([pts_reward]).to(DEVICE)
             else:
                 # otherwise choose the best action
                 with torch.no_grad():
-                    input_tensor = torch.tensor(new_state, dtype=torch.float).to(DEVICE)
+                    # since new_state is a tensor, we will save it into this
+                    input_tensor = new_state.to(DEVICE)
                     target = torch.tensor(
                         # make the new state into a tensor input
-                        pts_reward + self.discount_factor_g * target_dqn(input_tensor).max()
+                        pts_reward + self.discount * target_dqn(input_tensor).max()
                     ).to(DEVICE)
 
             # Get the current set of Q values
@@ -232,7 +241,7 @@ class Match3AI():
             
             # Adjust the specific action to the target that was just calculated. 
             # Target_q[batch][action], hardcode batch to 0 because there is only 1 batch.
-            target_q[0][action] = target
+            target_q[action] = target
             target_q_list.append(target_q)
 
         # Compute loss for the whole minibatch
@@ -263,17 +272,17 @@ class Match3AI():
 
         for i in range(episodes):
             state = env.reset()[0]  # Initialize to state 0
-            terminated = False      # True when agent falls in hole or reached goal
+            episode_over = False      # True when agent falls in hole or reached goal
             truncated = False       # True when agent takes more than 200 actions
 
-            # Agent navigates map until it falls into a hole (terminated), reaches goal (terminated), or has taken 200 actions (truncated).
-            while(not terminated and not truncated):
+            # Agent navigates map until it falls into a hole (episode_over), reaches goal (episode_over), or has taken 200 actions (truncated).
+            while(not episode_over and not truncated):
                 # Select best action
                 with torch.no_grad():
                     action = policy_dqn(self.state_to_dqn_input(state)).argmax().item()
 
                 # Execute action
-                state,reward,terminated,truncated,_ = env.step(action)
+                state,reward,episode_over,truncated,_ = env.step(action)
 
         env.close()
 
@@ -300,7 +309,7 @@ class Match3AI():
 if __name__ == '__main__':
 
     bot = Match3AI()
-    bot.train(100,7)
+    bot.train(1000,6, True)
     
 #     model = DQN(1, 161).to(DEVICE)
 #     matrix = np.array(([

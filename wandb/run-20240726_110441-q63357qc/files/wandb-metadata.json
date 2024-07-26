@@ -1,0 +1,53 @@
+{
+    "os": "Windows-10-10.0.19045-SP0",
+    "python": "3.12.4",
+    "heartbeatAt": "2024-07-26T04:04:42.289243",
+    "startedAt": "2024-07-26T04:04:41.410723",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "c:\\Users\\CPU12297-local\\Desktop\\gym_match\\model.py",
+    "codePathLocal": "model.py",
+    "codePath": "model.py",
+    "git": {
+        "remote": "https://github.com/xblam/matching_game_cnn_bot.git",
+        "commit": "40192021d98230da7c2debbff6330e918d3b7052"
+    },
+    "email": "benlam05032004@gmail.com",
+    "root": "C:/Users/CPU12297-local/Desktop/gym_match",
+    "host": "CPU12297",
+    "username": "CPU12297-local",
+    "executable": "C:\\Users\\CPU12297-local\\anaconda3\\envs\\snakegame\\python.exe",
+    "cpu_count": 6,
+    "cpu_count_logical": 6,
+    "cpu_freq": {
+        "current": 2808.0,
+        "min": 0.0,
+        "max": 2808.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 2808.0,
+            "min": 0.0,
+            "max": 2808.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 179.99999618530273,
+            "used": 111.31880569458008
+        }
+    },
+    "gpu": "NVIDIA GeForce GTX 1050 Ti",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA GeForce GTX 1050 Ti",
+            "memory_total": 4294967296
+        }
+    ],
+    "memory": {
+        "total": 15.940956115722656
+    }
+}

@@ -27,10 +27,10 @@ class TestModel(unittest.TestCase):
 #        print(float(max_value))
 #        print(int(max_index))
 
-
+    
     def test_training(self):
-
         game = Match3Env(90)
+        
         _last_obs, infos = game.reset()       
         state = game.return_game_matrix
         num_actions = 161
