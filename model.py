@@ -79,7 +79,14 @@ class Match3AI():
         # will add the other matrices representing the bomsb and stuff later, but right now just make sure that this shit runs
 
         # give the color of the gems (1-5), the position of the monster(13)
-        return obs[[1,2,3,4,5,13]] # removed legal actions since it doesnt seem to be doing much
+        power_ups = torch.stack([obs[6], obs[7],obs[8], obs[9],obs[10]])
+        sum_power_ups = torch.sum(power_ups, dim = 0).unsqueeze(0)
+
+        non_powerups = obs[[1,2,3,4,5,13]]
+
+        final_state = torch.cat((non_powerups, sum_power_ups), dim = 0)
+
+        return final_state
 
     
     def action_to_coords(self, action):
@@ -128,6 +135,7 @@ class Match3AI():
             env = Match3Env(90)
             obs, infos = env.reset()
             state = self.get_state(obs)
+            print(state)
             pygame.init()
             if display:
                 # Initialize the display with the initial state
@@ -165,7 +173,7 @@ class Match3AI():
                 obs, reward, episode_over, infos = env.step(action)
                 new_state = self.get_state(obs)
 
-                pts_reward = reward['score'] + reward['match_damage_on_monster']*10 + reward['power_damage_on_monster']*10
+                pts_reward = reward['match_damage_on_monster']*10 + reward['power_damage_on_monster']*10
                 episode_total_reward += pts_reward
                 step_count+=1
 
@@ -208,7 +216,7 @@ class Match3AI():
             if log:
                 wandb.log({
                     "running average reward (last 10)": np.sum(rewards_per_episode[-10:])/10,
-                    "game_no": i,
+                    "episodes": i,
                     "epsilon": epsilon
                 })
 
@@ -306,8 +314,7 @@ class Match3AI():
 if __name__ == '__main__':
 
     bot = Match3AI()
-    # bot.train(1000,6, False, True)
+    # bot.train(100, 7, False, True)
 
     # run wandb and no display (faster training)
-    bot.train(1000,6, True, False)
-    
+    bot.train(100,6, True)
