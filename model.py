@@ -11,6 +11,8 @@ import wandb
 
 
 DEVICE =  torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+if (torch.cuda.is_available()):
+    print("USING CUDA")
 
 # Define model
 class DQN(nn.Module):
@@ -135,7 +137,6 @@ class Match3AI():
             env = Match3Env(90)
             obs, infos = env.reset()
             state = self.get_state(obs)
-            print(state)
             pygame.init()
             if display:
                 # Initialize the display with the initial state
@@ -161,11 +162,8 @@ class Match3AI():
                         
                         input_tensor = state.to(DEVICE)
                         q_values = policy_dqn(input_tensor)
-                        print(type(valid_moves))
-                        print(type(q_values))
-                        valid_mask = torch.zeros_like(q_values).to(DEVICE)
+                        valid_mask = torch.zeros_like(q_values)
                         valid_mask[valid_moves] = 1
-                        print((valid_mask))
                         masked_q_values = q_values * valid_mask
                         action = (masked_q_values).argmax().item()
 
@@ -242,7 +240,7 @@ class Match3AI():
 
             # Get the q value for state from the policy network
             input_tensor = torch.tensor(state, dtype=torch.float).to(DEVICE)
-            policy_q = policy_dqn(input_tensor)
+            policy_q = policy_dqn(input_tensor).to(DEVICE)
             policy_q_list.append(policy_q)
 
             # get the same value for the target network
@@ -317,4 +315,4 @@ if __name__ == '__main__':
     # bot.train(100, 7, False, True)
 
     # run wandb and no display (faster training)
-    bot.train(100,6, True)
+    bot.train(1000, 7,True)
