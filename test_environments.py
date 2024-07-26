@@ -46,15 +46,20 @@ while running:
     matrix = np.array(env.return_game_matrix)
     for i in range(10):
         # Identify the indices where the value is 1
+        valid_moves = infos['action_space']
+        print('valid_moves ', valid_moves)
+        print(type(valid_moves))
         indices_with_one = [index for index, value in enumerate(action_space) if value == 1]
+        print(type(indices_with_one))
 
         # Randomly select one of those indices
         if indices_with_one:
             # Temporary model instantiation (replace with actual model loading if necessary)
-            # model = DQN(1, 161).to(DEVICE)
+            model = DQN(1, 161).to(DEVICE)
 
-            # input_tensor = torch.tensor(env.return_game_matrix, dtype=torch.float).to(DEVICE)
-            # output_tensor = model(input_tensor)
+            input_tensor = torch.tensor(env.return_game_matrix, dtype=torch.float).to(DEVICE)
+            output_tensor = model(input_tensor)
+            print(output_tensor.shape)
 
             # max_val, max_idx = torch.max(output_tensor, dim=0)
 

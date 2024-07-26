@@ -110,7 +110,7 @@ class Match3AI():
 
         self.optimizer = torch.optim.Adam(policy_dqn.parameters(), lr=self.learning_rate)
 
-        rewards_per_episode = np.zeros(episodes)
+        rewards_per_episode = []
 
         step_count=0
 
@@ -122,6 +122,7 @@ class Match3AI():
             )
         for i in range(episodes):
             print("NEW LIFE STARTED")
+            episode_total_reward = 0
 
             # in the future when the model is doing better, switch this so that the level changes after every life
             env = Match3Env(90)
@@ -132,7 +133,9 @@ class Match3AI():
                 # Initialize the display with the initial state
                 matrix = np.array(env.return_game_matrix)
                 display = Display(matrix)
-            damage = 0
+
+            # set the array of valid moves and force the ai to pick from them
+            
 
             # have to see if there is any way to tell if the player's hp is under 0 or the creep's hp is under 0 so then we end the game
             # will probably make it so we end the game if there is more than 50 moves and we still have not won or lost yet
@@ -140,20 +143,30 @@ class Match3AI():
             episode_over = False
             # each step in game
             while not episode_over:
+                valid_moves = [index for index, value in enumerate(infos['action_space']) if value == 1]
                 if np.random.rand() < epsilon:
-                    action = np.random.randint(0,161)
+                    action = np.random.choice(valid_moves)
+                    
                 else:
                     with torch.no_grad():
                         # make sure you put the entirity of all of the layers that you want to pass here
+                        
                         input_tensor = state.to(DEVICE)
-                        action = policy_dqn(input_tensor).argmax().item()
+                        q_values = policy_dqn(input_tensor)
+                        print(type(valid_moves))
+                        print(type(q_values))
+                        valid_mask = torch.zeros_like(q_values).to(DEVICE)
+                        valid_mask[valid_moves] = 1
+                        print((valid_mask))
+                        masked_q_values = q_values * valid_mask
+                        action = (masked_q_values).argmax().item()
 
                 # take action and get new state
                 obs, reward, episode_over, infos = env.step(action)
                 new_state = self.get_state(obs)
 
                 pts_reward = reward['score'] + reward['match_damage_on_monster']*10 + reward['power_damage_on_monster']*10
-                damage += reward['damage_on_user']
+                episode_total_reward += pts_reward
                 step_count+=1
 
                 if display:
@@ -171,13 +184,11 @@ class Match3AI():
 
                 # update the state and step count and reward of the current game
                 state = new_state
-                rewards_per_episode[i] += pts_reward
-                print("damage: ", damage)
                 print("pts_reward: ", pts_reward)
-                print("current reward in episode: ", rewards_per_episode[i])
                 print("rewards: ", reward)
                 print("steps since last sync: ", step_count)
 
+            rewards_per_episode.append(episode_total_reward)
             # Check if enough experience has been collected and if at least 1 reward has been collected
             # change this because we could probably implement it so that we only match to where there is a valid move
             if len(memory)>self.mini_batch_size and np.sum(rewards_per_episode)>0:
@@ -203,10 +214,6 @@ class Match3AI():
 
         env.close()
         torch.save(policy_dqn.state_dict(), "gym_match3.pt")
-
-        sum_rewards = np.zeros(episodes)
-        for x in range(episodes):
-            sum_rewards[x] = np.sum(rewards_per_episode[max(0, x-100):(x+1)])
 
     def optimize(self, mini_batch, policy_dqn, target_dqn):
         # make the policy
@@ -299,34 +306,8 @@ class Match3AI():
 if __name__ == '__main__':
 
     bot = Match3AI()
-    bot.train(1000,6, True)
-    
-#     model = DQN(1, 161).to(DEVICE)
-#     matrix = np.array(([
-#     [14, 14, 2, 4, 3, 1, 4, 2, 4],
-#     [14, 14, 4, 3, 1, 2, 1, 3, 3],
-#     [3, 4, 1, 5, 2, 4, 1, 2, 5],
-#     [5, 5, 4, 5, 2, 5, 5, 4, 4],
-#     [4, 1, 2, 3, 1, 2, 3, 4, 2],
-#     [4, 1, 4, 4, 2, 4, 1, 3, 4],
-#     [2, 4, 3, 3, 5, 5, 4, 1, 2],
-#     [1, 2, 1, 1, 3, 3, 1, 4, 1],
-#     [4, 1, 3, 2, 1, 2, 1, 5, 2],
-#     [3, 2, 1, 2, 4, 2, 3, 2, 1]
-# ]))
-#     print(matrix.shape)
-    
-#     input_tensor = torch.tensor(matrix, dtype=torch.float).to(DEVICE)
+    # bot.train(1000,6, False, True)
 
-#     output = model(input_tensor)
-
-
-#     # Print resulting predictions
-#     print(output)
-    
-#     # find a way to return what the model thinks is the actual prediction of the index of the move that we should make
-#     max_value, max_index = torch.max(output, dim=0)
-
-#     print(int(max_index))
-
+    # run wandb and no display (faster training)
+    bot.train(1000,6, True, False)
     
