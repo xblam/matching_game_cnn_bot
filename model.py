@@ -142,9 +142,7 @@ class Match3AI():
     def train(self, episodes, num_channels, log = False, display = False, render=False, load_model=False, model_id = 0):
         num_actions = 161
         epsilon = 1
-
         memory = ReplayMemory(self.memory_size)
-
         # make policy and target networks
         policy_dqn = DQN(in_channels=num_channels, out_actions=num_actions).to(DEVICE)
         target_dqn = DQN(in_channels=num_channels, out_actions=num_actions).to(DEVICE)
@@ -159,28 +157,16 @@ class Match3AI():
         if load_model:
             self.load_checkpoint(torch.load(f"{model_id}_parameters.txt"), target_dqn, policy_dqn, self.optimizer)
 
-        step_count=0
+        if log: wandb.init(project="match3", name = str(run_id))
+        
+        mons_killed = 0
 
-        if log:
-            wandb.init(
-                project="match3",
-                name = str(run_id)
-            )
-            
         # each episode represents one life that the system plays
         for i in range(episodes):
             print("NEW LIFE STARTED")
             episode_total_reward = 0
             episode_damage_user = 0
-
-            # if this difficult condition is met, then that means that the model is no longer playing randomly so we save
-            if episode_total_reward > 0:
-                checkpoint = {'target_state' : target_dqn.state_dict(), 'policy_state' : policy_dqn.state_dict(), 'optimizer' : self.optimizer.state_dict()}
-                self.save_checkpoint(checkpoint, run_id)
             
-
-
-
             # in the future when the model is doing better, switch this so that the level changes after every life
             env = Match3Env(90)
             obs, infos = env.reset()
@@ -191,10 +177,10 @@ class Match3AI():
                 matrix = np.array(env.return_game_matrix)
                 display = Display(matrix)
 
-            episode_over = False
-            # each step in game
-            while not episode_over:
+            step_count = 0
 
+            episode_over = False
+            while not episode_over:
                 # choose a move from the list of valid moves (masked output of NN to be the same)
                 valid_moves = [index for index, value in enumerate(infos['action_space']) if value == 1]
                 if np.random.rand() < epsilon:
@@ -217,11 +203,7 @@ class Match3AI():
                 if episode_over:
                     pts_reward += reward["game"]
                     if (reward['game'] > 0):
-                        print("THE MONSTER HAS BEEN KILLED")
-
-                episode_total_reward += pts_reward
-                episode_damage_user += reward['damage_on_user']
-                step_count+=1
+                        mons_killed += 1
 
                 if display:
                     # animate the change
@@ -238,9 +220,14 @@ class Match3AI():
 
                 # update the state and step count and reward of the current game
                 state = new_state
+
+                episode_total_reward += pts_reward
+                episode_damage_user += reward['damage_on_user']
+                step_count+=1
                 print("pts_reward: ", pts_reward)
                 print("rewards: ", reward)
                 print("steps since last sync: ", step_count)
+                print("RUN ID: ", run_id)
 
             # Check if enough experience has been collected and if at least 1 reward has been collected
             # change this because we could probably implement it so that we only match to where there is a valid move
@@ -252,19 +239,18 @@ class Match3AI():
                 # Decay epsilon
                 epsilon = max(epsilon - 1/(episodes*0.9), 0)
 
-                # sync the policy network with the target network after certain amount of movse
+                # sync the policy network with the target network after certain amount of moves
                 if step_count > self.network_sync_rate:
                     print('syncing the networks')
                     target_dqn.load_state_dict(policy_dqn.state_dict())
                     step_count=0
             
-            if log:
-                wandb.log({
-                    "reward": episode_total_reward,
-                    "episodes": i,
-                    "epsilon": epsilon,
-                    "damage to user": episode_damage_user
-                })
+            if log: wandb.log({"reward":episode_total_reward, "episodes":i, "epsilon":epsilon, "damage to user":episode_damage_user})
+            
+            # if this difficult condition is met, then that means that the model is no longer playing randomly so we save
+            if episode_total_reward > 0:
+                checkpoint = {'target_state' : target_dqn.state_dict(), 'policy_state' : policy_dqn.state_dict(), 'optimizer' : self.optimizer.state_dict()}
+                self.save_checkpoint(checkpoint, run_id)
 
 
         
