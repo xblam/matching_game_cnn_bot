@@ -7,6 +7,26 @@ from torch import nn
 from gym_match3.envs.match3_env import Match3Env
 from display.pygame_display import *
 import wandb
+import uuid
+import os
+
+counter_file = "run_counter.txt"
+def read_counter(file_path):
+    if os.path.exists(file_path):
+        with open(file_path, 'r') as file:
+            try:
+                return int(file.read().strip())
+            except ValueError:
+                return 0
+    else:
+        return 0
+
+def write_counter(file_path, count):
+    with open(file_path, 'w') as file:
+        file.write(str(count))
+    
+
+
 
 
 DEVICE =  torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -61,9 +81,13 @@ class ReplayMemory():
         return len(self.memory)
 
 
+
+
 # FrozeLake Deep Q-Learning
 class Match3AI():
+    
 
+    instance_id = uuid.uuid4()
     # Hyperparameters (adjustable)
     learning_rate = 0.01
     discount = 0.9
@@ -104,7 +128,13 @@ class Match3AI():
 
         return coord1, coord2
     
-    def train(self, episodes, num_channels, log = False, display = False, render=False, is_slippery=False):
+ 
+    
+    def save_checkpoint(self, save_states, run_id):
+        print("saving checkout ---->>>")
+        torch.save(save_states, f"{run_id}_parameters.txt")
+    
+    def train(self, episodes, num_channels, log = False, display = False, render=False, load_model=False):
         num_actions = 161
         epsilon = 1
 
@@ -117,21 +147,28 @@ class Match3AI():
 
         self.optimizer = torch.optim.Adam(policy_dqn.parameters(), lr=self.learning_rate)
 
-        rewards_per_episode = []
-        damage_per_episode = []
-
         step_count=0
+
+        run_id = read_counter(counter_file)
+        write_counter(counter_file, run_id+1)
 
         if log:
             wandb.init(
-                project="match3"
+                project="match3",
+                name = str(run_id)
             )
             
         # each episode represents one life that the system plays
         for i in range(episodes):
             print("NEW LIFE STARTED")
-            episode_total_reward = 0
+            episode_total_reward = 10
             episode_damage_user = 0
+            if episode_total_reward > 0:
+                checkpoint = {'target_state' : target_dqn.state_dict(), 'policy_state_' : policy_dqn.state_dict(), 'optimizer' : self.optimizer.state_dict()}
+                self.save_checkpoint(checkpoint, run_id)
+            
+
+
 
             # in the future when the model is doing better, switch this so that the level changes after every life
             env = Match3Env(90)
@@ -143,11 +180,7 @@ class Match3AI():
                 matrix = np.array(env.return_game_matrix)
                 display = Display(matrix)
 
-            # set the array of valid moves and force the ai to pick from them
-            
-
-            # have to see if there is any way to tell if the player's hp is under 0 or the creep's hp is under 0 so then we end the game
-            # will probably make it so we end the game if there is more than 50 moves and we still have not won or lost yet
+            reward_list = []
 
             episode_over = False
             # each step in game
@@ -200,8 +233,6 @@ class Match3AI():
                 print("rewards: ", reward)
                 print("steps since last sync: ", step_count)
 
-            rewards_per_episode.append(episode_total_reward)
-            damage_per_episode.append(episode_damage_user)
             # Check if enough experience has been collected and if at least 1 reward has been collected
             # change this because we could probably implement it so that we only match to where there is a valid move
             if len(memory)>self.mini_batch_size:
@@ -220,13 +251,14 @@ class Match3AI():
             
             if log:
                 wandb.log({
-                    "running average reward (last 10)": np.sum(rewards_per_episode[-10:])/10,
                     "reward": episode_total_reward,
                     "episodes": i,
                     "epsilon": epsilon,
-                    "damange to user": np.sum(damage_per_episode[-10:])/10
+                    "damage to user": episode_damage_user
                 })
 
+
+        
         env.close()
         torch.save(policy_dqn.state_dict(), "gym_match3.pt")
 
@@ -266,9 +298,8 @@ class Match3AI():
         self.optimizer.step()
 
 if __name__ == '__main__':
-
     bot = Match3AI()
-    # bot.train(10, 11, False, True)
+    # bot.train(10, 11, False)
 
     # run wandb and no display (faster training)
     bot.train(500, 11,True)

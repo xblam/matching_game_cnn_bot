@@ -191,7 +191,7 @@ LEVELS = [
                     have_paper_box=True
                     )
     ]),
-    
+
     *easy_levels,
 
     Level(10, 9, 5, [
