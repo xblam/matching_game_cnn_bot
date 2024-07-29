@@ -267,7 +267,7 @@ class Match3AI():
 if __name__ == '__main__':
 
     bot = Match3AI()
-    bot.train(10, 11, False, True)
+    # bot.train(10, 11, False, True)
 
     # run wandb and no display (faster training)
-    # bot.train(1000, 11,True)
+    bot.train(500, 11,True)
