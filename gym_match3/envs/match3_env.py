@@ -137,36 +137,18 @@ class Match3Env(gym.Env):
 
         # change counter even action wasn't successful
         self.__episode_counter += 1
-        if (
-            self.__episode_counter >= self.rollout_len
-            or is_early_done_game
-            or self.__game.get_player_hp() <= 0
-        ):
+        if (self.__game.get_player_hp() <= 0): reward.update({'game':-100})
+        elif(is_early_done_game): reward.update({30+10*self.__game.num_mons})
+        elif(self.__episode_counter >= self.rollout_len): reward.update({"game": (-30- 1 * sum([mon.get_hp() for mon in self.__game.list_monsters if mon.real_monster]))})
+
+        if (self.__episode_counter >= self.rollout_len or is_early_done_game or self.__game.get_player_hp() <= 0):
             episode_over = True
             self.__episode_counter = 0
-
-            if self.__game.get_player_hp() <= 0:
-                reward.update({"game": -100})
-            else:
-                reward.update(
-                    {
-                        "game": (-30- 1 * sum(
-                                [
-                                    mon.get_hp()
-                                    for mon in self.__game.list_monsters
-                                    if mon.real_monster
-                                ]
-                            )
-                            if not is_early_done_game
-                            else 30 + 10 * self.__game.num_mons
-                        )
-                    }
-                )
-
             self.result_step += 1
             obs, infos = self.reset()
-
             return obs, reward, episode_over, infos
+        
+
         else:
             episode_over = False
             ob["board"] = self.__get_board()

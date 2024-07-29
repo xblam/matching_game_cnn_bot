@@ -12,7 +12,7 @@ import wandb
 DEVICE =  torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 if (torch.cuda.is_available()):
     print("USING CUDA")
-
+pin_memory = False
 # Define model
 class DQN(nn.Module):
     def __init__(self, in_channels, out_actions):
@@ -35,8 +35,6 @@ class DQN(nn.Module):
             nn.Linear(in_features=200, out_features=128),
             nn.Linear(in_features=128, out_features=out_actions)
         )
-
-        # if something happens and we dont input the batch_size, then we will just manually resize the array so that the model still runs
 
     def forward(self, x):
         # manually add a layer if inputted matrix is 2 dimensions, or without a batch
@@ -67,7 +65,7 @@ class ReplayMemory():
 class Match3AI():
 
     # Hyperparameters (adjustable)
-    learning_rate = 0.001
+    learning_rate = 0.01
     discount = 0.9
     network_sync_rate = 25
     memory_size = 100000
@@ -173,9 +171,11 @@ class Match3AI():
                 print("episode over", episode_over)
                 new_state = self.get_state(obs)
 
-                pts_reward = reward['match_damage_on_monster'] + reward['power_damage_on_monster'] - reward['damage_on_user']
+                pts_reward = reward['match_damage_on_monster'] + reward['power_damage_on_monster']
                 if episode_over:
                     pts_reward += reward["game"]
+                    if (reward['game'] > 0):
+                        print("THE MONSTER HAS BEEN KILLED")
 
                 episode_total_reward += pts_reward
                 episode_damage_user += reward['damage_on_user']
@@ -267,7 +267,7 @@ class Match3AI():
 if __name__ == '__main__':
 
     bot = Match3AI()
-    bot.train(100, 11, False)
+    bot.train(10, 11, False, True)
 
     # run wandb and no display (faster training)
     # bot.train(1000, 11,True)

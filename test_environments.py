@@ -55,22 +55,22 @@ while running:
         # Randomly select one of those indices
         if indices_with_one:
             # Temporary model instantiation (replace with actual model loading if necessary)
-            model = DQN(1, 161).to(DEVICE)
+            # model = DQN(1, 161).to(DEVICE)
 
-            input_tensor = torch.tensor(env.return_game_matrix, dtype=torch.float).to(DEVICE)
+            # input_tensor = torch.tensor(env.return_game_matrix, dtype=torch.float).to(DEVICE)
          
-            output_tensor = model(input_tensor)
+            # output_tensor = model(input_tensor)
 
-            print("outpute tensore", output_tensor)
-            output_tensor[0] = 100
-            print('new output tensor', output_tensor)
-            print("output tensor type", type(output_tensor))
+            # print("outpute tensore", output_tensor)
+            # output_tensor[0] = 100
+            # print('new output tensor', output_tensor)
+            # print("output tensor type", type(output_tensor))
 
             # max_val, max_idx = torch.max(output_tensor, dim=0)
 
             # in the future I will let the model choose the selected action here
-            # selected_action = int(input("Put the move you want to do on the board: "))
-            selected_action = random.choice(indices_with_one)
+            selected_action = int(input("Put the move you want to do on the board: "))
+            # selected_action = random.choice(indices_with_one)
 
             (row1,col1), (row2,col2) = action_to_coords(selected_action)
             # obs is a 26,10,9 tensor, with each layer representing an observation (e.g layer of greens, layer of blues, layer of monter, layer of each powerup)
