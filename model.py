@@ -120,6 +120,7 @@ class Match3AI():
         self.optimizer = torch.optim.Adam(policy_dqn.parameters(), lr=self.learning_rate)
 
         rewards_per_episode = []
+        damage_per_episode = []
 
         step_count=0
 
@@ -132,6 +133,7 @@ class Match3AI():
         for i in range(episodes):
             print("NEW LIFE STARTED")
             episode_total_reward = 0
+            episode_damage_user = 0
 
             # in the future when the model is doing better, switch this so that the level changes after every life
             env = Match3Env(90)
@@ -171,8 +173,9 @@ class Match3AI():
                 obs, reward, episode_over, infos = env.step(action)
                 new_state = self.get_state(obs)
 
-                pts_reward = reward['match_damage_on_monster']*10 + reward['power_damage_on_monster']*10
+                pts_reward = reward['match_damage_on_monster'] + reward['power_damage_on_monster']
                 episode_total_reward += pts_reward
+                episode_damage_user += reward['damage_on_user']
                 step_count+=1
 
                 if display:
@@ -195,6 +198,7 @@ class Match3AI():
                 print("steps since last sync: ", step_count)
 
             rewards_per_episode.append(episode_total_reward)
+            damage_per_episode.append(episode_damage_user)
             # Check if enough experience has been collected and if at least 1 reward has been collected
             # change this because we could probably implement it so that we only match to where there is a valid move
             if len(memory)>self.mini_batch_size and np.sum(rewards_per_episode)>0:
@@ -203,7 +207,7 @@ class Match3AI():
                 self.optimize(mini_batch, policy_dqn, target_dqn)
 
                 # Decay epsilon
-                epsilon = max(epsilon - 1/episodes, 0)
+                epsilon = max(epsilon - 1/(episodes*0.9), 0)
 
                 # sync the policy network with the target network after certain amount of movse
                 if step_count > self.network_sync_rate:
@@ -215,7 +219,8 @@ class Match3AI():
                 wandb.log({
                     "running average reward (last 10)": np.sum(rewards_per_episode[-10:])/10,
                     "episodes": i,
-                    "epsilon": epsilon
+                    "epsilon": epsilon,
+                    "damange to user": np.sum(damage_per_episode[-10:])/10
                 })
 
         env.close()

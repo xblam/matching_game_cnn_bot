@@ -21,20 +21,20 @@ matrix = np.array([
 ])
 
 image_files = {
-    1: r'./display/1.png',
-    2: r'./display/2.png',
-    3: r'./display/3.png',
-    4: r'./display/4.png',
-    5: r'./display/5.png',
-    6: r'./display/6.png',
-    7: r'./display/7.png',
-    8: r'./display/8.png',
-    9: r'./display/9.png',
-    10: r'./display/10.png',
-    11: r'./display/11.png',
-    12: r'./display/12.png',
-    13: r'./display/13.png',
-    14: r'./display/14.png'
+    1: r'./display/1.jpg',
+    2: r'./display/2.jpg',
+    3: r'./display/3.jpg',
+    4: r'./display/4.jpg',
+    5: r'./display/5.jpg',
+    6: r'./display/6.jpg',
+    7: r'./display/7.jpg',
+    8: r'./display/8.jpg',
+    9: r'./display/9.jpg',
+    10: r'./display/10.jpg',
+    11: r'./display/11.jpg',
+    12: r'./display/12.jpg',
+    13: r'./display/13.jpg',
+    14: r'./display/14.jpg'
 }
 
 

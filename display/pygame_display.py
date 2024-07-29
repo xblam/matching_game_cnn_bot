@@ -47,7 +47,7 @@ class Display():
 
         self.image_dict = {}
         for i in range(15):
-            self.image_dict[i+1] = pygame.transform.scale(pygame.image.load(fr'./display/{i+1}.png'),(cell_size, cell_size))
+            self.image_dict[i+1] = pygame.transform.scale(pygame.image.load(fr'./display/{i+1}.jpg'),(cell_size, cell_size))
         self.update_display(self.matrix)
 
     def update_display(self, new_matrix):
