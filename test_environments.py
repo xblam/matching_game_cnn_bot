@@ -58,8 +58,13 @@ while running:
             model = DQN(1, 161).to(DEVICE)
 
             input_tensor = torch.tensor(env.return_game_matrix, dtype=torch.float).to(DEVICE)
+         
             output_tensor = model(input_tensor)
-            print(output_tensor.shape)
+
+            print("outpute tensore", output_tensor)
+            output_tensor[0] = 100
+            print('new output tensor', output_tensor)
+            print("output tensor type", type(output_tensor))
 
             # max_val, max_idx = torch.max(output_tensor, dim=0)
 
@@ -73,33 +78,39 @@ while running:
             # episode over just signifies whether or not the player/creep has died
             # infos is just the dictionary containing the action space of moves that would result in a match
             obs, reward, episode_over, infos = env.step(selected_action)
-            print("1", obs[1])
-            print("2", obs[2])
-            print("3:", obs[3])
-            print("4:", obs[4])
-            print("5:", obs[5])
-            print("monster:", obs[13])
-            print('legal_action:', obs[24])
-            print(action_space)
-            print('dones', dones)
-            print("infos: ", infos)
+            # print("1", obs[1])
+            # print("2", obs[2])
+            # print("3:", obs[3])
+            # print("4:", obs[4])
+            # print("5:", obs[5])
+            # print("monster:", obs[13])
+            # print('legal_action:', obs[24])
+            # print(action_space)
+            # print('dones', dones)
+            # print("infos: ", infos)
 
             # display and update matrix
             # display.animate_switch((row1,col1),(row2,col2), matrix)
             matrix = np.array(env.return_game_matrix)
-            # display.update_display(matrix)
+            display.update_display(matrix)
+
+            env.reset()
+            print("THE GAME HAS BEEN RESET")
+            pygame.time.wait(2000)
 
             action_space = infos['action_space']
 
-            print(action_space.shape)
+            # print(action_space.shape)
 
 
 
 
-            print("Selected index:", selected_action)
+            # print("Selected index:", selected_action)
             print("Reward of this action:", reward)
+            reward.update({"game" : 30})
+            print(reward)
 
-        pygame.time.wait(100)  # Small delay to make the loop more manageable
+        pygame.time.wait(1000)  # Small delay to make the loop more manageable
 
     pygame.quit()
     sys.exit()

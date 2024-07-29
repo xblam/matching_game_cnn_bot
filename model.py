@@ -3,7 +3,6 @@ import numpy as np
 from collections import deque
 import random
 import torch
-import time
 from torch import nn
 from gym_match3.envs.match3_env import Match3Env
 from display.pygame_display import *
@@ -19,7 +18,7 @@ class DQN(nn.Module):
     def __init__(self, in_channels, out_actions):
         super().__init__()
 
-        # this model is designed to take in inputs of rbg images with dimensinos 10x9
+        # this model will take in 
         self.conv_block1 = nn.Sequential(
             nn.Conv2d(in_channels=in_channels, out_channels=10, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
@@ -81,14 +80,15 @@ class Match3AI():
         # will add the other matrices representing the bomsb and stuff later, but right now just make sure that this shit runs
 
         # give the color of the gems (1-5), the position of the monster(13)
-        power_ups = torch.stack([obs[6], obs[7],obs[8], obs[9],obs[10]])
-        sum_power_ups = torch.sum(power_ups, dim = 0).unsqueeze(0)
+        # power_ups = torch.stack([obs[6], obs[7],obs[8], obs[9],obs[10]])
+        # sum_power_ups = torch.sum(power_ups, dim = 0).unsqueeze(0)
 
-        non_powerups = obs[[1,2,3,4,5,13]]
+        obs_input_layers = obs[[1,2,3,4,5,6,7,8,9,10,13]]
 
-        final_state = torch.cat((non_powerups, sum_power_ups), dim = 0)
+        # final_state = torch.cat((non_powerups, sum_power_ups), dim = 0)
 
-        return final_state
+        # return final_state
+        return obs_input_layers
 
     
     def action_to_coords(self, action):
@@ -124,12 +124,12 @@ class Match3AI():
 
         step_count=0
 
-        # each episode represents one life that the system plays
         if log:
             wandb.init(
-            # Set the wandb project where this run will be logged
                 project="match3"
             )
+            
+        # each episode represents one life that the system plays
         for i in range(episodes):
             print("NEW LIFE STARTED")
             episode_total_reward = 0
@@ -154,14 +154,13 @@ class Match3AI():
             episode_over = False
             # each step in game
             while not episode_over:
+
+                # choose a move from the list of valid moves (masked output of NN to be the same)
                 valid_moves = [index for index, value in enumerate(infos['action_space']) if value == 1]
                 if np.random.rand() < epsilon:
                     action = np.random.choice(valid_moves)
-                    
                 else:
                     with torch.no_grad():
-                        # make sure you put the entirity of all of the layers that you want to pass here
-                        
                         input_tensor = state.to(DEVICE)
                         q_values = policy_dqn(input_tensor)
                         valid_mask = torch.zeros_like(q_values)
@@ -171,9 +170,13 @@ class Match3AI():
 
                 # take action and get new state
                 obs, reward, episode_over, infos = env.step(action)
+                print("episode over", episode_over)
                 new_state = self.get_state(obs)
 
-                pts_reward = reward['match_damage_on_monster'] + reward['power_damage_on_monster']
+                pts_reward = reward['match_damage_on_monster'] + reward['power_damage_on_monster'] - reward['damage_on_user']
+                if episode_over:
+                    pts_reward += reward["game"]
+
                 episode_total_reward += pts_reward
                 episode_damage_user += reward['damage_on_user']
                 step_count+=1
@@ -186,7 +189,7 @@ class Match3AI():
                     # update the matrix and display new state
                     matrix = np.array(env.return_game_matrix)
                     display.update_display(matrix)
-                    pygame.time.wait(100)
+                    pygame.time.wait(200)
 
                 # store the replay in memory - probably need to fine tune what we actually want to store
                 memory.append((state, action, new_state, pts_reward, episode_over))
@@ -201,7 +204,7 @@ class Match3AI():
             damage_per_episode.append(episode_damage_user)
             # Check if enough experience has been collected and if at least 1 reward has been collected
             # change this because we could probably implement it so that we only match to where there is a valid move
-            if len(memory)>self.mini_batch_size and np.sum(rewards_per_episode)>0:
+            if len(memory)>self.mini_batch_size:
                 print("optimizing NN")
                 mini_batch = memory.sample(self.mini_batch_size)
                 self.optimize(mini_batch, policy_dqn, target_dqn)
@@ -232,14 +235,12 @@ class Match3AI():
         target_q_list = []
         # state and new state will just be the entire board for now
         for state, action, new_state, pts_reward, episode_over in mini_batch:
-
             if episode_over:
-                target = torch.tensor([pts_reward]).to(DEVICE) # target is the value that we want the policy network (the one doing the estimating) to have
+                target = torch.tensor([pts_reward]).to(DEVICE)
             else:
                 with torch.no_grad():
                     input_tensor = new_state.to(DEVICE)
                     target = torch.tensor(
-                        # make the new state into a tensor input
                         pts_reward + self.discount * target_dqn(input_tensor).max()
                     ).to(DEVICE)
 
@@ -249,8 +250,10 @@ class Match3AI():
             policy_q_list.append(policy_q)
 
             # get the same value for the target network
+            
+            # target q is the value we output for that specific state
             target_q = target_dqn(input_tensor)
-            target_q[action] = target # but for the action that we just did, we want to manually adjust the q-value of that action state pair
+            target_q[action] = target
             target_q_list.append(target_q)
 
         # Compute loss for the whole minibatch
@@ -261,63 +264,10 @@ class Match3AI():
         loss.backward()
         self.optimizer.step()
 
-
-    
-    # Run the FrozeLake environment with the learned policy
-    def test(self, episodes, is_slippery=False):
-        # Create FrozenLake instance
-        env = gym.make('FrozenLake-v1', map_name="4x4", is_slippery=is_slippery, render_mode='human')
-        num_states = env.observation_space.n
-        num_actions = env.action_space.n
-
-        # Load learned policy
-        policy_dqn = DQN(in_channels=3, out_actions=num_actions)
-        policy_dqn.load_state_dict(torch.load("frozen_lake_dql_cnn.pt"))
-        policy_dqn.eval()    # switch model to evaluation mode
-
-        print('Policy (trained):')
-        self.print_dqn(policy_dqn)
-
-        for i in range(episodes):
-            state = env.reset()[0]  # Initialize to state 0
-            episode_over = False      # True when agent falls in hole or reached goal
-            truncated = False       # True when agent takes more than 200 actions
-
-            # Agent navigates map until it falls into a hole (episode_over), reaches goal (episode_over), or has taken 200 actions (truncated).
-            while(not episode_over and not truncated):
-                # Select best action
-                with torch.no_grad():
-                    action = policy_dqn(self.state_to_dqn_input(state)).argmax().item()
-
-                # Execute action
-                state,reward,episode_over,truncated,_ = env.step(action)
-
-        env.close()
-
-    # Print DQN: state, best action, q values
-    def print_dqn(self, dqn):
-
-        # Loop each state and print policy to console
-        for s in range(16):
-            #  Format q values for printing
-            q_values = ''
-            for q in dqn(self.state_to_dqn_input(s))[0].tolist():
-                q_values += "{:+.2f}".format(q)+' '  # Concatenate q values, format to 2 decimals
-            q_values=q_values.rstrip()              # Remove space at the end
-
-            # Map the best action to L D R U
-            best_action = self.ACTIONS[dqn(self.state_to_dqn_input()).argmax()]
-
-            # Print policy in the format of: state, action, q values
-            # The printed layout matches the FrozenLake map.
-            print(f'{s:02},{best_action},[{q_values}]', end=' ')
-            if (s+1)%4==0:
-                print() # Print a newline every 4 states
-
 if __name__ == '__main__':
 
     bot = Match3AI()
-    # bot.train(100, 7, False, True)
+    bot.train(100, 11, False)
 
     # run wandb and no display (faster training)
-    bot.train(1000, 7,True)
+    # bot.train(1000, 11,True)
