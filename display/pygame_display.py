@@ -4,7 +4,7 @@ import numpy as np
 
 # Initialize Pygame
 
-
+clock = pygame.time.Clock()
 
 # Define a matrix (example: 1 for image1, 2 for image2)
 matrix_test = np.array(([
@@ -63,6 +63,7 @@ class Display():
 
         # Update the display
         pygame.display.flip()
+        clock.tick(60)
     # the start and end positions that we are given will be the matrices positions.
     def animate_switch(self, start_pos, end_pos,matrix, steps=30):
     
@@ -98,7 +99,7 @@ class Display():
 if __name__ == "__main__":
     display = Display(matrix_test)
     animate = True
-    # run the display. we can update the code and stuff beneath
+    # run the display. we can update the code and stuff beneaths
     running = True
     while running:
         for event in pygame.event.get():
@@ -107,6 +108,6 @@ if __name__ == "__main__":
         if animate:
 
             display.animate_switch((1,1),(1,2), display.matrix)
-            animate = False
+            display.update_display(display.matrix)
 
        

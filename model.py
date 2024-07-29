@@ -221,6 +221,7 @@ class Match3AI():
             if log:
                 wandb.log({
                     "running average reward (last 10)": np.sum(rewards_per_episode[-10:])/10,
+                    "reward": episode_total_reward,
                     "episodes": i,
                     "epsilon": epsilon,
                     "damange to user": np.sum(damage_per_episode[-10:])/10
