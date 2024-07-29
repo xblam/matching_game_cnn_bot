@@ -85,9 +85,8 @@ class ReplayMemory():
 
 # FrozeLake Deep Q-Learning
 class Match3AI():
-    
 
-    instance_id = uuid.uuid4()
+
     # Hyperparameters (adjustable)
     learning_rate = 0.01
     discount = 0.9
@@ -128,13 +127,19 @@ class Match3AI():
 
         return coord1, coord2
     
- 
+    
     
     def save_checkpoint(self, save_states, run_id):
         print("saving checkout ---->>>")
         torch.save(save_states, f"{run_id}_parameters.txt")
+
+    def load_checkpoint(self, checkpoint, target, policy, optimizer):
+        print("loading checkpoint ----->>>")
+        target.load_state_dict(checkpoint['target_state'])
+        policy.load_state_dict(checkpoint['policy_state'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
     
-    def train(self, episodes, num_channels, log = False, display = False, render=False, load_model=False):
+    def train(self, episodes, num_channels, log = False, display = False, render=False, load_model=False, model_id = 0):
         num_actions = 161
         epsilon = 1
 
@@ -144,13 +149,17 @@ class Match3AI():
         policy_dqn = DQN(in_channels=num_channels, out_actions=num_actions).to(DEVICE)
         target_dqn = DQN(in_channels=num_channels, out_actions=num_actions).to(DEVICE)
         target_dqn.load_state_dict(policy_dqn.state_dict())
-
         self.optimizer = torch.optim.Adam(policy_dqn.parameters(), lr=self.learning_rate)
 
-        step_count=0
-
+        # this is the counter that will give each of our runs a unique id
         run_id = read_counter(counter_file)
         write_counter(counter_file, run_id+1)
+
+        # if we are loading a model then we will just change the parameters themselves
+        if load_model:
+            self.load_checkpoint(torch.load(f"{model_id}_parameters.txt"), target_dqn, policy_dqn, self.optimizer)
+
+        step_count=0
 
         if log:
             wandb.init(
@@ -161,10 +170,12 @@ class Match3AI():
         # each episode represents one life that the system plays
         for i in range(episodes):
             print("NEW LIFE STARTED")
-            episode_total_reward = 10
+            episode_total_reward = 0
             episode_damage_user = 0
+
+            # if this difficult condition is met, then that means that the model is no longer playing randomly so we save
             if episode_total_reward > 0:
-                checkpoint = {'target_state' : target_dqn.state_dict(), 'policy_state_' : policy_dqn.state_dict(), 'optimizer' : self.optimizer.state_dict()}
+                checkpoint = {'target_state' : target_dqn.state_dict(), 'policy_state' : policy_dqn.state_dict(), 'optimizer' : self.optimizer.state_dict()}
                 self.save_checkpoint(checkpoint, run_id)
             
 
@@ -179,8 +190,6 @@ class Match3AI():
                 # Initialize the display with the initial state
                 matrix = np.array(env.return_game_matrix)
                 display = Display(matrix)
-
-            reward_list = []
 
             episode_over = False
             # each step in game
@@ -302,4 +311,5 @@ if __name__ == '__main__':
     # bot.train(10, 11, False)
 
     # run wandb and no display (faster training)
-    bot.train(500, 11,True)
+    # train(episodes, num_channels, log = False, display = False, render=False, load_model=False, model_id = 0
+    bot.train(1000, 11,True, False, False, 0)
