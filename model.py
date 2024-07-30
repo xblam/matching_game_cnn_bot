@@ -7,6 +7,7 @@ from gym_match3.envs.match3_env import Match3Env
 from display.pygame_display import *
 import wandb
 import os
+from torch.utils.data import DataLoader
 
 
 counter_file = "run_counter.txt"
@@ -75,7 +76,7 @@ class Match3AI():
     # hyperparameters
     learning_rate = 0.001
     discount = 0.9
-    network_sync_rate = 25
+    network_sync_rate = 50
     memory_size = 100000
     mini_batch_size = 100
 
@@ -197,14 +198,17 @@ class Match3AI():
                 self.optimize(mini_batch, policy_dqn, target_dqn)
                 epsilon = max(epsilon - 1/(episodes*0.9), 0)
                 print('syncing the networks')
-                target_dqn.load_state_dict(policy_dqn.state_dict())
-                step_count=0
+
+                if step_count > self.network_sync_rate:
+                    target_dqn.load_state_dict(policy_dqn.state_dict())
+                    step_count=0
             
             if log: wandb.log({"reward":episode_total_reward, "episodes":i, "epsilon":epsilon, "damage to user":episode_damage_user})
             
-            # XBLAM since the binary files are not that heavy we will just save the policy no matter what
-            checkpoint = {'target_state' : target_dqn.state_dict(), 'policy_state' : policy_dqn.state_dict(), 'optimizer' : self.optimizer.state_dict()}
-            self.save_checkpoint(checkpoint, run_id)
+            # XBLAM this is a pretty good score, if the model is able to pass this point then it has potential and should be saved.
+            if episode_total_reward > -20:
+                checkpoint = {'target_state' : target_dqn.state_dict(), 'policy_state' : policy_dqn.state_dict(), 'optimizer' : self.optimizer.state_dict()}
+                self.save_checkpoint(checkpoint, run_id)
 
         env.close()
         torch.save(policy_dqn.state_dict(), "gym_match3.pt")
@@ -241,4 +245,4 @@ if __name__ == '__main__':
     bot = Match3AI()
     # train(episodes, num_channels, log = False, display = False, render=False, load_model=False, model_id = 0
     # bot.train(10, 11, False)
-    bot.train(episodes=1000, num_channels=11,log=False, display=False, model_id=0)
+    bot.train(episodes=1000, num_channels=11, log=False, display=False, model_id=0)
