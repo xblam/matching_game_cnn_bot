@@ -216,10 +216,10 @@ class Match3AI():
             if log: wandb.log({"reward":episode_total_reward, "episodes":i, "epsilon":epsilon, "damage to user":episode_damage_user, 'highest reward':max_reward})
             
             # XBLAM this is a pretty good score, if the model is able to pass this point then it has potential and should be saved.
-            if max_reward <= int(pts_reward):
+            if max_reward <= episode_total_reward:
                 checkpoint = {'target_state' : target_dqn.state_dict(), 'policy_state' : policy_dqn.state_dict(), 'optimizer' : self.optimizer.state_dict()}
                 self.save_checkpoint(checkpoint, run_id)
-                max_reward = int(pts_reward)
+                max_reward = episode_total_reward
                 print("SAVED PARAMETERS TO FOLDER")
 
         env.close()

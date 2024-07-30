@@ -35,7 +35,6 @@ MANIFEST
 pip-log.txt
 pip-delete-this-directory.txt
 run_counter.txt
-model_state_dicts
 
 # Unit test / coverage reports
 htmlcov/
@@ -50,6 +49,7 @@ coverage.xml
 .pytest_cache/
 wandb/
 *parameters.txt
+*state_dict.pth
 # Translations
 *.mo
 *.pot
