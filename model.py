@@ -78,7 +78,7 @@ class Match3AI():
     discount = 0.9
     network_sync_rate = 50
     memory_size = 100000
-    mini_batch_size = 50
+    mini_batch_size = 100
 
     loss_fn = nn.MSELoss() 
     optimizer = None
@@ -108,18 +108,12 @@ class Match3AI():
         file_path = os.path.join(dir_name, f"{run_id}_state_dict.pth")
         torch.save(save_states, file_path)
 
-    def load_checkpoint(self, checkpoint, target, policy, optimizer):
+    def load_checkpoint(self, save_file_path, target, policy, optimizer):
         print("loading checkpoint ---->>>")
- 
-
-        # Load the state dictionary
-        state_dict = torch.load(file_path)
-
-        # Load the state dictionary into the model
-        self.model.load_state_dict(state_dict)
-        target.load_state_dict(checkpoint['target_state'])
-        policy.load_state_dict(checkpoint['policy_state'])
-        optimizer.load_state_dict(checkpoint['optimizer'])
+        state_dict = torch.load(save_file_path)
+        target.load_state_dict(state_dict['target_state'])
+        policy.load_state_dict(state_dict['policy_state'])
+        optimizer.load_state_dict(state_dict['optimizer'])
     
     def train(self, episodes, num_channels, log = False, display = False, load_model=False, model_id = 0):
         num_actions = 161
@@ -140,7 +134,7 @@ class Match3AI():
         # This is to allow us to run experiments without the fear of messing up the parameters of the pretrained models.
         if load_model:
             file_path = os.path.join("model_state_dicts", f"{model_id}_state_dict.pth")
-            self.load_checkpoint(torch.load(file_path, target_dqn, policy_dqn, self.optimizer))
+            self.load_checkpoint(file_path, target_dqn, policy_dqn, self.optimizer)
 
         if log: wandb.init(project="match3", name = str(run_id))
 
@@ -153,7 +147,7 @@ class Match3AI():
             episode_damage_user = 0
             
             # in the future when the model is doing better, switch this so that the level changes after every life
-            env = Match3Env(50)
+            env = Match3Env()
             obs, infos = env.reset()
             state = self.get_state(obs)
             step_count = 0
@@ -262,4 +256,4 @@ if __name__ == '__main__':
     bot = Match3AI()
     # train(episodes, num_channels, log = False, display = False, render=False, load_model=False, model_id = 0
     # bot.train(10, 11, False)
-    bot.train(episodes=1000, num_channels=11, log=True, display=False, load_model=False, model_id=0)
+    bot.train(episodes=1000, num_channels=11, log=True, display=False, load_model=True, model_id=7)
