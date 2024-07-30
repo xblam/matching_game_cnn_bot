@@ -1,47 +1,57 @@
-import gymnasium as gym
-import numpy as np
-from collections import deque
-import random
 import torch
-from torch import nn
-from gym_match3.envs.match3_env import Match3Env
-from display.pygame_display import *
-import wandb
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
 
-
-DEVICE =  torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-if (torch.cuda.is_available()):
-    print("USING CUDA")
-
-
-class A2C(nn.Module):
-    def __init__(self, in_channels, num_ouputs):
-        super().__init__()
-
-        # this model will take in 
-        self.conv_block1 = nn.Sequential(
-            nn.Conv2d(in_channels=in_channels, out_channels=10, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(in_channels=10, out_channels=10, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(),  
-            nn.MaxPool2d(kernel_size=2)
-            # the output will be 10 images of dimension 5x4
-        )
-
-        self.layer_stack = nn.Sequential(
-            # After flattening the matrix into a vector, pass it to the output layer. To determine the input shape, use the print() statement in forward()
-
-            # in this case the input should simply be the size of a singular image
-            nn.Linear(in_features=200, out_features=128),
-            nn.Linear(in_features=128, out_features=num_ouputs)
-        )
-
+# Define Actor Network
+class ActorNN(nn.Module):
+    def __init__(self, input_dim, output_dim):
+        super(ActorNN, self).__init__()
+        self.fc1 = nn.Linear(input_dim, 128)
+        self.fc2 = nn.Linear(128, output_dim)
+    
     def forward(self, x):
-        # manually add a layer if inputted matrix is 2 dimensions, or without a batch
-        if len(x.shape) == 2:
-            x = torch.unsqueeze(x, 0)
-        x = self.conv_block1(x)
-        x = x.flatten()
-        x = self.layer_stack(x)
+        x = F.relu(self.fc1(x))
+        x = F.softmax(self.fc2(x), dim=-1)
         return x
-        
+
+# Define Critic Network
+class CriticNN(nn.Module):
+    def __init__(self, input_dim):
+        super(CriticNN, self).__init__()
+        self.fc1 = nn.Linear(input_dim, 128)
+        self.fc2 = nn.Linear(128, 1)
+    
+    def forward(self, x):
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
+
+def train_model(num_episodes = int):
+    actor = ActorNN()
+    critic = CriticNN()
+
+
+    num_episodes = 1000
+    for episode in range(num_episodes):
+        state = env.reset()
+        done = False
+        while not done:
+            action_probs = ActorNN(state)
+            value = CriticNN(state)      
+            action = sample_action(action_probs)
+            next_state, reward, done, _ = env.step(action)      
+            next_value = CriticNN(next_state)      
+            advantage = reward + (1 - done) * gamma * next_value - value      
+            actor_loss = -log_prob(action) * advantage + entropy_coeff * entropy(action_probs)
+            critic_loss = advantage^2      
+            actor_optimizer.zero_grad()
+            actor_loss.backward()
+            actor_optimizer.step()      
+            critic_optimizer.zero_grad()
+            critic_loss.backward()
+            critic_optimizer.step()      
+            state = next_state
+
+if __name__ == "__main__":
+    train_model(1000)

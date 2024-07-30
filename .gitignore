@@ -50,6 +50,7 @@ coverage.xml
 wandb/
 *parameters.txt
 *state_dict.pth
+*state_dict.txt
 # Translations
 *.mo
 *.pot

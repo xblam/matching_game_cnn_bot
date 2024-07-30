@@ -26,8 +26,8 @@ def write_counter(file_path, count):
         file.write(str(count))
     
 
-DEVICE =  torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-if (torch.cuda.is_available()): print("USING CUDA")
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+if torch.cuda.is_available(): print("USING CUDA")
 
 # Define model
 class DQN(nn.Module):
@@ -39,21 +39,18 @@ class DQN(nn.Module):
             nn.Conv2d(in_channels=20, out_channels=20, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2)
-            # the output will be 10 images of dimension 5x4
         )
         self.layer_stack = nn.Sequential(
-            # After flattening the matrix into a vector, pass it to the output layer. To determine the input shape, use the print() statement in forward()
-            # in this case the input should simply be the size of a singular image
             nn.Linear(in_features=400, out_features=256),
+            nn.ReLU(),
             nn.Linear(in_features=256, out_features=out_actions)
         )
 
     def forward(self, x):
-        # manually add a layer if inputted matrix is 2 dimensions, or without a batch
         if len(x.shape) == 2:
             x = torch.unsqueeze(x, 0)
         x = self.conv_block1(x)
-        x = x.flatten()
+        x = x.flatten(start_dim=1)
         x = self.layer_stack(x)
         return x
 
@@ -89,20 +86,20 @@ class Match3AI():
 
     def action_to_coords(self, action):
         if action < 80:
-            row = action//8
-            col = action%8
+            row = action // 8
+            col = action % 8
             coord1 = (row, col)
-            coord2 = (row, col+1)
+            coord2 = (row, col + 1)
         else:
             action = action - 80
-            row = action//9
-            col = action%9
+            row = action // 9
+            col = action % 9
             coord1 = (row, col)
-            coord2 = (row+1,col)
+            coord2 = (row + 1, col)
         return coord1, coord2
     
     def save_checkpoint(self, save_states, run_id):
-        print("saving checkout ---->>>")
+        print("saving checkpoint ---->>>")
         dir_name = "model_state_dicts"
         os.makedirs(dir_name, exist_ok=True)
         file_path = os.path.join(dir_name, f"{run_id}_state_dict.pth")
@@ -115,41 +112,35 @@ class Match3AI():
         policy.load_state_dict(state_dict['policy_state'])
         optimizer.load_state_dict(state_dict['optimizer'])
     
-    def train(self, episodes, num_channels, log = False, display = False, load_model=False, model_id = 0):
+    def train(self, episodes, num_channels, log=False, display=False, load_model=False, model_id=0):
         num_actions = 161
         epsilon = 1
         memory = ReplayMemory(self.memory_size)
 
-        # make policy and target networks and optimizer
         policy_dqn = DQN(in_channels=num_channels, out_actions=num_actions).to(DEVICE)
         target_dqn = DQN(in_channels=num_channels, out_actions=num_actions).to(DEVICE)
         target_dqn.load_state_dict(policy_dqn.state_dict())
         self.optimizer = torch.optim.Adam(policy_dqn.parameters(), lr=self.learning_rate)
 
-        # give each run unique id
         run_id = read_counter(counter_file)
-        write_counter(counter_file, run_id+1)
+        write_counter(counter_file, run_id + 1)
 
-        # NOTE: when you load the model, the saved updated version of model you run will not be saved back to the same file. 
-        # This is to allow us to run experiments without the fear of messing up the parameters of the pretrained models.
         if load_model:
             file_path = os.path.join("model_state_dicts", f"{model_id}_state_dict.pth")
             self.load_checkpoint(file_path, target_dqn, policy_dqn, self.optimizer)
 
-        if log: wandb.init(project="match3", name = str(run_id))
+        if log: wandb.init(project="match3", name=str(run_id))
 
         max_reward = -100
-        
-        # each episode represents one life that the system plays
+
         for i in range(episodes):
             print("NEW LIFE STARTED")
             episode_total_reward = 0
             episode_damage_user = 0
             
-            # in the future when the model is doing better, switch this so that the level changes after every life
             env = Match3Env()
             obs, infos = env.reset()
-            state = self.get_state(obs)
+            state = self.get_state(obs).to(DEVICE)
             step_count = 0
             
             if display:
@@ -159,65 +150,58 @@ class Match3AI():
 
             episode_over = False
             while not episode_over:
-                # choose a move from the list of valid moves (masked output of NN to only be valid moves)
                 valid_moves = [index for index, value in enumerate(infos['action_space']) if value == 1]
                 if np.random.rand() < epsilon:
                     action = np.random.choice(valid_moves)
                 else:
                     with torch.no_grad():
-                        # input_tensor = state.to(DEVICE)
-                        # q_values = policy_dqn(input_tensor)
-                        # valid_mask = torch.zeros_like(q_values)
-                        # valid_mask[valid_moves] = 1
-                        # masked_q_values = q_values * valid_mask
-                        # action = (masked_q_values).argmax().item()
-                        input_tensor = torch.tensor(state).to(DEVICE)
-                        output_tensor = policy_dqn(input_tensor)
-                        action = (output_tensor).argmax().item()
+                        input_tensor = state.unsqueeze(0).to(DEVICE)
+                        q_values = policy_dqn(input_tensor)
+                        valid_q_values = q_values[0, valid_moves]
+                        action = valid_moves[valid_q_values.argmax().item()]
+                
                 action = torch.tensor(action).to(DEVICE)
 
                 obs, reward, episode_over, infos = env.step(action)
                 new_state = self.get_state(obs).to(DEVICE)
 
-                pts_reward = torch.tensor(reward['match_damage_on_monster']*5 + reward['power_damage_on_monster']*5)
+                pts_reward = reward['match_damage_on_monster'] * 5 + reward['power_damage_on_monster'] * 5
                 if episode_over:
                     pts_reward += reward["game"]
 
                 if display:
-                    (row1,col1), (row2,col2) = self.action_to_coords(action)
-                    display.animate_switch((row1,col1),(row2,col2), matrix)
+                    (row1, col1), (row2, col2) = self.action_to_coords(action)
+                    display.animate_switch((row1, col1), (row2, col2), matrix)
                     matrix = np.array(env.return_game_matrix)
                     display.update_display(matrix)
                     pygame.time.wait(200)
 
                 memory.append((state, action, new_state, pts_reward, episode_over))
-                state = new_state.to(DEVICE)
-                step_count+=1
+                state = new_state
+                step_count += 1
                 episode_total_reward += pts_reward
                 episode_damage_user += reward['damage_on_user']
+                print("steps since last sync: ", step_count)
                 print("pts_reward: ", pts_reward)
                 print("rewards: ", reward)
-                print("steps since last sync: ", step_count)
                 print("highest reward: ", max_reward)
                 print("RUN ID: ", run_id)
 
-            # get mini batch and optimize our model
-            if len(memory)>self.mini_batch_size:
+            if len(memory) > self.mini_batch_size:
                 print("optimizing NN")
                 mini_batch = memory.sample(self.mini_batch_size)
                 self.optimize(mini_batch, policy_dqn, target_dqn)
-                epsilon = max(epsilon - 1/(episodes*0.9), 0)
+                epsilon = max(epsilon - 1 / (episodes * 0.9), 0)
                 print('syncing the networks')
 
                 if step_count > self.network_sync_rate:
                     target_dqn.load_state_dict(policy_dqn.state_dict())
-                    step_count=0
+                    step_count = 0
 
-            if log: wandb.log({"reward":episode_total_reward, "episodes":i, "epsilon":epsilon, "damage to user":episode_damage_user, 'highest reward':max_reward})
+            if log: wandb.log({"reward": episode_total_reward, "episodes": i, "epsilon": epsilon, "damage to user": episode_damage_user, 'highest reward': max_reward})
             
-            # XBLAM this is a pretty good score, if the model is able to pass this point then it has potential and should be saved.
             if max_reward <= episode_total_reward:
-                checkpoint = {'target_state' : target_dqn.state_dict(), 'policy_state' : policy_dqn.state_dict(), 'optimizer' : self.optimizer.state_dict()}
+                checkpoint = {'target_state': target_dqn.state_dict(), 'policy_state': policy_dqn.state_dict(), 'optimizer': self.optimizer.state_dict()}
                 self.save_checkpoint(checkpoint, run_id)
                 max_reward = episode_total_reward
                 print("SAVED PARAMETERS TO FOLDER")
@@ -226,34 +210,29 @@ class Match3AI():
         torch.save(policy_dqn.state_dict(), "gym_match3.pt")
 
     def optimize(self, mini_batch, policy_dqn, target_dqn):
-        policy_q_list = []
-        target_q_list = []
+        states, actions, new_states, rewards, episode_overs = zip(*mini_batch)
 
-        for state, action, new_state, pts_reward, episode_over in mini_batch:
-            if episode_over:
-                target = torch.tensor([pts_reward]).to(DEVICE)
-            else:
-                with torch.no_grad():
-                    input_tensor = new_state.to(DEVICE)
-                    target = torch.tensor(pts_reward + self.discount * target_dqn(input_tensor).max()).to(DEVICE)
+        states = torch.stack(states).to(DEVICE)
+        actions = torch.tensor(actions, dtype=torch.int64).unsqueeze(1).to(DEVICE)
+        new_states = torch.stack(new_states).to(DEVICE)
+        rewards = torch.tensor(rewards, dtype=torch.float32).to(DEVICE)
+        episode_overs = torch.tensor(episode_overs, dtype=torch.float32).to(DEVICE)
 
-            # Get the q value for state from the policy network
-            input_tensor = torch.tensor(state, dtype=torch.float).to(DEVICE)
-            policy_q = policy_dqn(input_tensor).to(DEVICE)
-            policy_q_list.append(policy_q)
-            
-            # target q is the value we output for that specific state
-            target_q = target_dqn(input_tensor)
-            target_q[action] = target
-            target_q_list.append(target_q)
+        with torch.no_grad():
+            target_q_values = target_dqn(new_states).max(1)[0]
+            target_q_values = rewards + (1 - episode_overs) * self.discount * target_q_values
 
-        loss = self.loss_fn(torch.stack(policy_q_list), torch.stack(target_q_list))
+        policy_q_values = policy_dqn(states).gather(1, actions).squeeze()
+
+        loss = self.loss_fn(policy_q_values, target_q_values)
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+
 
 if __name__ == '__main__':
     bot = Match3AI()
     # train(episodes, num_channels, log = False, display = False, render=False, load_model=False, model_id = 0
     # bot.train(10, 11, False)
-    bot.train(episodes=1000, num_channels=11, log=True, display=False, load_model=True, model_id=7)
+    bot.train(episodes=1000, num_channels=11, log=True, display=False, load_model=True, model_id=28)
+
