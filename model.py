@@ -79,7 +79,7 @@ class Match3AI():
     discount = 0.9
     network_sync_rate = 50
     memory_size = 100000
-    mini_batch_size = 90
+    mini_batch_size = 100
 
     loss_fn = nn.MSELoss() 
     optimizer = None
@@ -112,7 +112,7 @@ class Match3AI():
         policy.load_state_dict(checkpoint['policy_state'])
         optimizer.load_state_dict(checkpoint['optimizer'])
     
-    def train(self, episodes, num_channels, log = False, display = False, render=False, load_model=False, model_id = 0):
+    def train(self, episodes, num_channels, log = False, display = False, load_model=False, model_id = 0):
         num_actions = 161
         epsilon = 1
         memory = ReplayMemory(self.memory_size)
@@ -123,7 +123,7 @@ class Match3AI():
         target_dqn.load_state_dict(policy_dqn.state_dict())
         self.optimizer = torch.optim.Adam(policy_dqn.parameters(), lr=self.learning_rate)
 
-        # this is the counter that will give each of our runs a unique id
+        # give each run unique id
         run_id = read_counter(counter_file)
         write_counter(counter_file, run_id+1)
 
@@ -133,6 +133,8 @@ class Match3AI():
             self.load_checkpoint(torch.load(f"{model_id}_parameters.txt"), target_dqn, policy_dqn, self.optimizer)
 
         if log: wandb.init(project="match3", name = str(run_id))
+
+        max_reward = 0
         
         # each episode represents one life that the system plays
         for i in range(episodes):
@@ -141,16 +143,15 @@ class Match3AI():
             episode_damage_user = 0
             
             # in the future when the model is doing better, switch this so that the level changes after every life
-            env = Match3Env(90)
+            env = Match3Env()
             obs, infos = env.reset()
             state = self.get_state(obs)
+            step_count = 0
             
             if display:
                 pygame.init()
                 matrix = np.array(env.return_game_matrix)
                 display = Display(matrix)
-
-            step_count = 0
 
             episode_over = False
             while not episode_over:
@@ -169,7 +170,6 @@ class Match3AI():
                 action = torch.tensor(action).to(DEVICE)
 
                 obs, reward, episode_over, infos = env.step(action)
-                print("episode over", episode_over)
                 new_state = self.get_state(obs).to(DEVICE)
 
                 pts_reward = torch.tensor(reward['match_damage_on_monster'] + reward['power_damage_on_monster']).to(DEVICE)
@@ -193,12 +193,14 @@ class Match3AI():
                 print("steps since last sync: ", step_count)
                 print("RUN ID: ", run_id)
 
+            # get mini batch and optimize our model
             if len(memory)>self.mini_batch_size:
                 print("optimizing NN")
                 mini_batch = memory.sample(self.mini_batch_size)
                 start_time = time.time()
                 self.optimize(mini_batch, policy_dqn, target_dqn)
                 end_time = time.time()
+                print("optmization time:", end_time - start_time)
                 epsilon = max(epsilon - 1/(episodes*0.9), 0)
                 print('syncing the networks')
 
@@ -209,9 +211,10 @@ class Match3AI():
             if log: wandb.log({"reward":episode_total_reward, "episodes":i, "epsilon":epsilon, "damage to user":episode_damage_user, "optimization time: ": end_time - start_time})
             
             # XBLAM this is a pretty good score, if the model is able to pass this point then it has potential and should be saved.
-            if episode_total_reward > -20:
+            if episode_total_reward > -20 and max_reward <= pts_reward:
                 checkpoint = {'target_state' : target_dqn.state_dict(), 'policy_state' : policy_dqn.state_dict(), 'optimizer' : self.optimizer.state_dict()}
                 self.save_checkpoint(checkpoint, run_id)
+                max_reward = pts_reward
 
         env.close()
         torch.save(policy_dqn.state_dict(), "gym_match3.pt")
