@@ -187,16 +187,15 @@ class Match3AI():
                 print("highest reward: ", max_reward)
                 print("RUN ID: ", run_id)
 
-            if len(memory) > self.mini_batch_size:
-                print("optimizing NN")
-                mini_batch = memory.sample(self.mini_batch_size)
-                self.optimize(mini_batch, policy_dqn, target_dqn)
-                epsilon = max(epsilon - 1 / (episodes * 0.9), 0)
-                print('syncing the networks')
+            print("optimizing NN")
+            mini_batch = memory.sample(self.mini_batch_size)
+            self.optimize(mini_batch, policy_dqn, target_dqn)
+            epsilon = max(epsilon - 1 / (episodes * 0.9), 0)
+            print('syncing the networks')
+            target_dqn.load_state_dict(policy_dqn.state_dict())
+            step_count = 0
 
-                if step_count > self.network_sync_rate:
-                    target_dqn.load_state_dict(policy_dqn.state_dict())
-                    step_count = 0
+            print("TOTAL REWARD OF EPISODE: ", episode_total_reward)
 
             if log: wandb.log({"reward": episode_total_reward, "episodes": i, "epsilon": epsilon, "damage to user": episode_damage_user, 'highest reward': max_reward})
             
@@ -207,7 +206,6 @@ class Match3AI():
                 print("SAVED PARAMETERS TO FOLDER")
 
         env.close()
-        torch.save(policy_dqn.state_dict(), "gym_match3.pt")
 
     def optimize(self, mini_batch, policy_dqn, target_dqn):
         states, actions, new_states, rewards, episode_overs = zip(*mini_batch)
@@ -228,7 +226,70 @@ class Match3AI():
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+    
 
+    def test(self, episodes, num_channels, display=False, model_id=0):
+        num_actions = 161
+        target_dqn = DQN(in_channels=num_channels, out_actions=num_actions).to(DEVICE)
+        policy_dqn = DQN(in_channels=num_channels, out_actions=num_actions).to(DEVICE)
+        self.optimizer = torch.optim.Adam(policy_dqn.parameters(), lr=self.learning_rate)
+
+        file_path = os.path.join("model_state_dicts", f"{model_id}_state_dict.pth")
+        self.load_checkpoint(file_path, target_dqn, policy_dqn, self.optimizer)
+
+        run_id = read_counter(counter_file)
+        write_counter(counter_file, run_id + 1)
+
+        for i in range(episodes):
+            print("NEW LIFE STARTED")
+            episode_total_reward = 0
+            episode_damage_user = 0
+            
+            env = Match3Env()
+            obs, infos = env.reset()
+            state = self.get_state(obs).to(DEVICE)
+            step_count = 0
+            
+            if display:
+                pygame.init()
+                matrix = np.array(env.return_game_matrix)
+                display = Display(matrix)
+
+            episode_over = False
+            while not episode_over:
+                valid_moves = [index for index, value in enumerate(infos['action_space']) if value == 1]
+                with torch.no_grad():
+                    input_tensor = state.unsqueeze(0).to(DEVICE)
+                    q_values = policy_dqn(input_tensor)
+                    valid_q_values = q_values[0, valid_moves]
+                    action = valid_moves[valid_q_values.argmax().item()]
+                action = torch.tensor(action).to(DEVICE)
+
+                obs, reward, episode_over, infos = env.step(action)
+                state = self.get_state(obs).to(DEVICE)
+
+                pts_reward = reward['match_damage_on_monster'] * 5 + reward['power_damage_on_monster'] * 5
+                if episode_over:
+                    pts_reward += reward["game"]
+
+                if display:
+                    (row1, col1), (row2, col2) = self.action_to_coords(action)
+                    display.animate_switch((row1, col1), (row2, col2), matrix)
+                    matrix = np.array(env.return_game_matrix)
+                    display.update_display(matrix)
+                    pygame.time.wait(200)
+
+                
+                step_count += 1
+                episode_total_reward += pts_reward
+                episode_damage_user += reward['damage_on_user']
+                print("steps since last sync: ", step_count)
+                print("pts_reward: ", pts_reward)
+                # XBLAM should probably print other things like how much hp the monster has or something
+                print("rewards: ", reward)
+                print("RUN ID: ", run_id)
+
+        env.close()
 
 if __name__ == '__main__':
     bot = Match3AI()
