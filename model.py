@@ -7,7 +7,8 @@ from gym_match3.envs.match3_env import Match3Env
 from display.pygame_display import *
 import wandb
 import os
-from torch.utils.data import DataLoader
+# from torch.utils.data import DataLoader
+import time
 
 
 counter_file = "run_counter.txt"
@@ -78,7 +79,7 @@ class Match3AI():
     discount = 0.9
     network_sync_rate = 50
     memory_size = 100000
-    mini_batch_size = 100
+    mini_batch_size = 90
 
     loss_fn = nn.MSELoss() 
     optimizer = None
@@ -195,15 +196,17 @@ class Match3AI():
             if len(memory)>self.mini_batch_size:
                 print("optimizing NN")
                 mini_batch = memory.sample(self.mini_batch_size)
+                start_time = time.time()
                 self.optimize(mini_batch, policy_dqn, target_dqn)
+                end_time = time.time()
                 epsilon = max(epsilon - 1/(episodes*0.9), 0)
                 print('syncing the networks')
 
                 if step_count > self.network_sync_rate:
                     target_dqn.load_state_dict(policy_dqn.state_dict())
                     step_count=0
-            
-            if log: wandb.log({"reward":episode_total_reward, "episodes":i, "epsilon":epsilon, "damage to user":episode_damage_user})
+
+            if log: wandb.log({"reward":episode_total_reward, "episodes":i, "epsilon":epsilon, "damage to user":episode_damage_user, "optimization time: ": end_time - start_time})
             
             # XBLAM this is a pretty good score, if the model is able to pass this point then it has potential and should be saved.
             if episode_total_reward > -20:
@@ -239,6 +242,7 @@ class Match3AI():
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
+
 
 
 if __name__ == '__main__':
