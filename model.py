@@ -1,4 +1,3 @@
-import gymnasium as gym
 import numpy as np
 from collections import deque
 import random
@@ -7,7 +6,6 @@ from torch import nn
 from gym_match3.envs.match3_env import Match3Env
 from display.pygame_display import *
 import wandb
-import uuid
 import os
 
 
@@ -28,17 +26,16 @@ def write_counter(file_path, count):
     
 
 DEVICE =  torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-if (torch.cuda.is_available()):
-    print("USING CUDA")
-pin_memory = False
+if (torch.cuda.is_available()): print("USING CUDA")
+
 # Define model
 class DQN(nn.Module):
     def __init__(self, in_channels, out_actions):
         super().__init__()
         self.conv_block1 = nn.Sequential(
-            nn.Conv2d(in_channels=in_channels, out_channels=10, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels=in_channels, out_channels=20, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.Conv2d(in_channels=10, out_channels=10, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels=20, out_channels=20, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2)
             # the output will be 10 images of dimension 5x4
@@ -46,8 +43,8 @@ class DQN(nn.Module):
         self.layer_stack = nn.Sequential(
             # After flattening the matrix into a vector, pass it to the output layer. To determine the input shape, use the print() statement in forward()
             # in this case the input should simply be the size of a singular image
-            nn.Linear(in_features=200, out_features=128),
-            nn.Linear(in_features=128, out_features=out_actions)
+            nn.Linear(in_features=400, out_features=256),
+            nn.Linear(in_features=256, out_features=out_actions)
         )
 
     def forward(self, x):
@@ -76,7 +73,7 @@ class ReplayMemory():
 
 class Match3AI():
     # hyperparameters
-    learning_rate = 0.01
+    learning_rate = 0.001
     discount = 0.9
     network_sync_rate = 25
     memory_size = 100000
@@ -128,6 +125,8 @@ class Match3AI():
         run_id = read_counter(counter_file)
         write_counter(counter_file, run_id+1)
 
+        # NOTE: when you load the model, the saved updated version of model you run will not be saved back to the same file. 
+        # This is to allow us to run experiments without the fear of messing up the parameters of the pretrained models.
         if load_model:
             self.load_checkpoint(torch.load(f"{model_id}_parameters.txt"), target_dqn, policy_dqn, self.optimizer)
 
@@ -165,16 +164,15 @@ class Match3AI():
                         valid_mask[valid_moves] = 1
                         masked_q_values = q_values * valid_mask
                         action = (masked_q_values).argmax().item()
+                action = torch.tensor(action).to(DEVICE)
 
                 obs, reward, episode_over, infos = env.step(action)
                 print("episode over", episode_over)
-                new_state = self.get_state(obs)
+                new_state = self.get_state(obs).to(DEVICE)
 
-                pts_reward = reward['match_damage_on_monster'] + reward['power_damage_on_monster']
+                pts_reward = torch.tensor(reward['match_damage_on_monster'] + reward['power_damage_on_monster']).to(DEVICE)
                 if episode_over:
                     pts_reward += reward["game"]
-                    if (reward['game'] > 0):
-                        mons_killed += 1
 
                 if display:
                     (row1,col1), (row2,col2) = self.action_to_coords(action)
@@ -184,7 +182,7 @@ class Match3AI():
                     pygame.time.wait(200)
 
                 memory.append((state, action, new_state, pts_reward, episode_over))
-                state = new_state
+                state = new_state.to(DEVICE)
                 step_count+=1
                 episode_total_reward += pts_reward
                 episode_damage_user += reward['damage_on_user']
@@ -198,18 +196,15 @@ class Match3AI():
                 mini_batch = memory.sample(self.mini_batch_size)
                 self.optimize(mini_batch, policy_dqn, target_dqn)
                 epsilon = max(epsilon - 1/(episodes*0.9), 0)
-
-                if step_count > self.network_sync_rate:
-                    print('syncing the networks')
-                    target_dqn.load_state_dict(policy_dqn.state_dict())
-                    step_count=0
+                print('syncing the networks')
+                target_dqn.load_state_dict(policy_dqn.state_dict())
+                step_count=0
             
             if log: wandb.log({"reward":episode_total_reward, "episodes":i, "epsilon":epsilon, "damage to user":episode_damage_user})
             
-            # if this difficult condition is met, then that means that the model is no longer playing randomly so we save
-            if episode_total_reward > 0:
-                checkpoint = {'target_state' : target_dqn.state_dict(), 'policy_state' : policy_dqn.state_dict(), 'optimizer' : self.optimizer.state_dict()}
-                self.save_checkpoint(checkpoint, run_id)
+            # XBLAM since the binary files are not that heavy we will just save the policy no matter what
+            checkpoint = {'target_state' : target_dqn.state_dict(), 'policy_state' : policy_dqn.state_dict(), 'optimizer' : self.optimizer.state_dict()}
+            self.save_checkpoint(checkpoint, run_id)
 
         env.close()
         torch.save(policy_dqn.state_dict(), "gym_match3.pt")
@@ -224,9 +219,7 @@ class Match3AI():
             else:
                 with torch.no_grad():
                     input_tensor = new_state.to(DEVICE)
-                    target = torch.tensor(
-                        pts_reward + self.discount * target_dqn(input_tensor).max()
-                    ).to(DEVICE)
+                    target = torch.tensor(pts_reward + self.discount * target_dqn(input_tensor).max()).to(DEVICE)
 
             # Get the q value for state from the policy network
             input_tensor = torch.tensor(state, dtype=torch.float).to(DEVICE)
@@ -248,4 +241,4 @@ if __name__ == '__main__':
     bot = Match3AI()
     # train(episodes, num_channels, log = False, display = False, render=False, load_model=False, model_id = 0
     # bot.train(10, 11, False)
-    bot.train(1000, 11,True, False, False, 0)
+    bot.train(episodes=1000, num_channels=11,log=False, display=False, model_id=0)
