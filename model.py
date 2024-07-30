@@ -7,7 +7,6 @@ from gym_match3.envs.match3_env import Match3Env
 from display.pygame_display import *
 import wandb
 import os
-# from torch.utils.data import DataLoader
 import time
 
 
@@ -104,7 +103,7 @@ class Match3AI():
     
     def save_checkpoint(self, save_states, run_id):
         print("saving checkout ---->>>")
-        torch.save(save_states, f"{run_id}_parameters.txt")
+        torch.save(save_states, f"model_state_dicts/{run_id}_state_dict.txt")
 
     def load_checkpoint(self, checkpoint, target, policy, optimizer):
         print("loading checkpoint ---->>>")
@@ -130,11 +129,11 @@ class Match3AI():
         # NOTE: when you load the model, the saved updated version of model you run will not be saved back to the same file. 
         # This is to allow us to run experiments without the fear of messing up the parameters of the pretrained models.
         if load_model:
-            self.load_checkpoint(torch.load(f"{model_id}_parameters.txt"), target_dqn, policy_dqn, self.optimizer)
+            self.load_checkpoint(torch.load(f"model_state_dicts{model_id}_parameters.txt"), target_dqn, policy_dqn, self.optimizer)
 
         if log: wandb.init(project="match3", name = str(run_id))
 
-        max_reward = 0
+        max_reward = -100
         
         # each episode represents one life that the system plays
         for i in range(episodes):
@@ -191,16 +190,14 @@ class Match3AI():
                 print("pts_reward: ", pts_reward)
                 print("rewards: ", reward)
                 print("steps since last sync: ", step_count)
+                print("highest reward: ", max_reward)
                 print("RUN ID: ", run_id)
 
             # get mini batch and optimize our model
             if len(memory)>self.mini_batch_size:
                 print("optimizing NN")
                 mini_batch = memory.sample(self.mini_batch_size)
-                start_time = time.time()
                 self.optimize(mini_batch, policy_dqn, target_dqn)
-                end_time = time.time()
-                print("optmization time:", end_time - start_time)
                 epsilon = max(epsilon - 1/(episodes*0.9), 0)
                 print('syncing the networks')
 
@@ -208,13 +205,14 @@ class Match3AI():
                     target_dqn.load_state_dict(policy_dqn.state_dict())
                     step_count=0
 
-            if log: wandb.log({"reward":episode_total_reward, "episodes":i, "epsilon":epsilon, "damage to user":episode_damage_user, "optimization time: ": end_time - start_time})
+            if log: wandb.log({"reward":episode_total_reward, "episodes":i, "epsilon":epsilon, "damage to user":episode_damage_user, 'highest reward':max_reward})
             
             # XBLAM this is a pretty good score, if the model is able to pass this point then it has potential and should be saved.
-            if episode_total_reward > -20 and max_reward <= pts_reward:
+            if max_reward <= int(pts_reward):
                 checkpoint = {'target_state' : target_dqn.state_dict(), 'policy_state' : policy_dqn.state_dict(), 'optimizer' : self.optimizer.state_dict()}
                 self.save_checkpoint(checkpoint, run_id)
-                max_reward = pts_reward
+                max_reward = int(pts_reward)
+                print("SAVED PARAMETERS TO FOLDER")
 
         env.close()
         torch.save(policy_dqn.state_dict(), "gym_match3.pt")
@@ -245,8 +243,6 @@ class Match3AI():
         self.optimizer.zero_grad()
         loss.backward()
         self.optimizer.step()
-
-
 
 if __name__ == '__main__':
     bot = Match3AI()
