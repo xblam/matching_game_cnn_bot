@@ -171,7 +171,7 @@ class Match3AI():
                 obs, reward, episode_over, infos = env.step(action)
                 new_state = self.get_state(obs).to(DEVICE)
 
-                pts_reward = torch.tensor(reward['match_damage_on_monster'] + reward['power_damage_on_monster']).to(DEVICE)
+                pts_reward = torch.tensor(reward['match_damage_on_monster']*5 + reward['power_damage_on_monster']*5).to(DEVICE)
                 if episode_over:
                     pts_reward += reward["game"]
 
@@ -248,4 +248,4 @@ if __name__ == '__main__':
     bot = Match3AI()
     # train(episodes, num_channels, log = False, display = False, render=False, load_model=False, model_id = 0
     # bot.train(10, 11, False)
-    bot.train(episodes=1000, num_channels=11, log=False, display=False, model_id=0)
+    bot.train(episodes=1000, num_channels=11, log=True, display=False, model_id=0)
