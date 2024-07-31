@@ -7,7 +7,7 @@ from gym_match3.envs.match3_env import Match3Env
 from display.pygame_display import *
 import wandb
 import os
-import time
+import argparse
 
 
 counter_file = "run_counter.txt"
@@ -34,14 +34,14 @@ class DQN(nn.Module):
     def __init__(self, in_channels, out_actions):
         super().__init__()
         self.conv_block1 = nn.Sequential(
-            nn.Conv2d(in_channels=in_channels, out_channels=20, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels=in_channels, out_channels=10, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.Conv2d(in_channels=20, out_channels=20, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels=10, out_channels=10, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2)
         )
         self.layer_stack = nn.Sequential(
-            nn.Linear(in_features=400, out_features=256),
+            nn.Linear(in_features=200, out_features=256),
             nn.ReLU(),
             nn.Linear(in_features=256, out_features=out_actions)
         )
@@ -112,8 +112,9 @@ class Match3AI():
         policy.load_state_dict(state_dict['policy_state'])
         optimizer.load_state_dict(state_dict['optimizer'])
     
-    def train(self, episodes, num_channels, log=False, display=False, load_model=False, model_id=0):
+    def train(self, episodes, log=False, display=False, load_model=False, model_id=0):
         num_actions = 161
+        num_channels = 11
         epsilon = 1
         memory = ReplayMemory(self.memory_size)
 
@@ -131,7 +132,7 @@ class Match3AI():
 
         if log: wandb.init(project="match3", name=str(run_id))
 
-        max_reward = -100
+        max_reward = 0
 
         for i in range(episodes):
             print("NEW LIFE STARTED")
@@ -149,6 +150,8 @@ class Match3AI():
                 display = Display(matrix)
 
             episode_over = False
+
+            game_won = 0
             while not episode_over:
                 valid_moves = [index for index, value in enumerate(infos['action_space']) if value == 1]
                 if np.random.rand() < epsilon:
@@ -168,6 +171,8 @@ class Match3AI():
                 pts_reward = reward['match_damage_on_monster'] * 5 + reward['power_damage_on_monster'] * 5
                 if episode_over:
                     pts_reward += reward["game"]
+                    if reward['game'] > 0:
+                        game_won = 1
 
                 if display:
                     (row1, col1), (row2, col2) = self.action_to_coords(action)
@@ -197,7 +202,7 @@ class Match3AI():
 
             print("TOTAL REWARD OF EPISODE: ", episode_total_reward)
 
-            if log: wandb.log({"reward": episode_total_reward, "episodes": i, "epsilon": epsilon, "damage to user": episode_damage_user, 'highest reward': max_reward})
+            if log: wandb.log({"reward": episode_total_reward, "episodes": i, "epsilon": epsilon, "damage to user": episode_damage_user, 'highest reward': max_reward, "game_won" : game_won})
             
             if max_reward <= episode_total_reward:
                 checkpoint = {'target_state': target_dqn.state_dict(), 'policy_state': policy_dqn.state_dict(), 'optimizer': self.optimizer.state_dict()}
@@ -247,7 +252,7 @@ class Match3AI():
             
             env = Match3Env()
             obs, infos = env.reset()
-            state = self.get_state(obs).to(DEVICE)
+            state = self.get_state(obs)
             step_count = 0
             
             if display:
@@ -259,14 +264,14 @@ class Match3AI():
             while not episode_over:
                 valid_moves = [index for index, value in enumerate(infos['action_space']) if value == 1]
                 with torch.no_grad():
-                    input_tensor = state.unsqueeze(0).to(DEVICE)
+                    input_tensor = state.unsqueeze(0)
                     q_values = policy_dqn(input_tensor)
                     valid_q_values = q_values[0, valid_moves]
                     action = valid_moves[valid_q_values.argmax().item()]
-                action = torch.tensor(action).to(DEVICE)
+                action = torch.tensor(action)
 
                 obs, reward, episode_over, infos = env.step(action)
-                state = self.get_state(obs).to(DEVICE)
+                state = self.get_state(obs)
 
                 pts_reward = reward['match_damage_on_monster'] * 5 + reward['power_damage_on_monster'] * 5
                 if episode_over:
@@ -291,9 +296,33 @@ class Match3AI():
 
         env.close()
 
-if __name__ == '__main__':
+def main():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("-e", "--episodes", type=int, required=True)
+    parser.add_argument("-l", "--log", action='store_true')
+    parser.add_argument("-d", "--display", action='store_true')  
+    parser.add_argument("-ld", "--load_model", action='store_true') 
+    parser.add_argument("-mid", "--model_id", type=int, required=True)
+    # Parse the arguments
+    args = parser.parse_args()
+
+    # Use the parsed arguments
+    print('episodes:', args.episodes)
+    print('log:', args.log)
+    print('display:', args.display)
+    print('load model:', args.load_model)
+    print('model id:', args.model_id)
+    #  episodes, log=False, display=False, load_model=False, model_id=0:
+
     bot = Match3AI()
-    # train(episodes, num_channels, log = False, display = False, render=False, load_model=False, model_id = 0
-    # bot.train(10, 11, False)
-    bot.train(episodes=1000, num_channels=11, log=True, display=False, load_model=True, model_id=28)
+
+    bot.train(args.episodes, args.log, args.display, args.load_model, args.model_id)
+
+if __name__ == '__main__':
+    main()
+    # bot = Match3AI()
+    # # train(episodes, log = False, display = False, render=False, load_model=False, model_id = 0
+    # # bot.train(10, 11, False)
+    # bot.train(episodes=1000, log=True, display=False, load_model=False, model_id=28)
 
