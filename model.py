@@ -112,7 +112,7 @@ class Match3AI():
         policy.load_state_dict(state_dict['policy_state'])
         optimizer.load_state_dict(state_dict['optimizer'])
     
-    def train(self, episodes, log=False, display=False, load_model=False, model_id=0):
+    def train(self, episodes, log=False, load_model=False, model_id=0):
         num_actions = 161
         num_channels = 11
         epsilon = 1
@@ -132,27 +132,19 @@ class Match3AI():
 
         if log: wandb.init(project="match3", name=str(run_id))
 
-        max_reward = 0
+        max_damage = 0
 
-        for i in range(episodes):
+        for i in range(episodes): # each episode of the game
             print("NEW LIFE STARTED")
-            episode_total_reward = 0
-            episode_damage_user = 0
-            
+            damage_dealt = damage_taken = game_won = 0
+
             env = Match3Env()
             obs, infos = env.reset()
             state = self.get_state(obs).to(DEVICE)
-            step_count = 0
-            
-            if display:
-                pygame.init()
-                matrix = np.array(env.return_game_matrix)
-                display = Display(matrix)
 
             episode_over = False
-
-            game_won = 0
-            while not episode_over:
+            while not episode_over: # each step of the game
+                step_damage_dealt = 0
                 valid_moves = [index for index, value in enumerate(infos['action_space']) if value == 1]
                 if np.random.rand() < epsilon:
                     action = np.random.choice(valid_moves)
@@ -168,29 +160,21 @@ class Match3AI():
                 obs, reward, episode_over, infos = env.step(action)
                 new_state = self.get_state(obs).to(DEVICE)
 
-                pts_reward = reward['match_damage_on_monster'] * 5 + reward['power_damage_on_monster'] * 5
-                if episode_over:
-                    pts_reward += reward["game"]
-                    if reward['game'] > 0:
-                        game_won = 1
+                # only reason we need this is to pass into memory
+                step_damage_dealt += reward['match_damage_on_monster'] + reward['power_damage_on_monster']
+                damage_dealt += step_damage_dealt
+                damage_taken += reward['damage_on_user']
 
-                if display:
-                    (row1, col1), (row2, col2) = self.action_to_coords(action)
-                    display.animate_switch((row1, col1), (row2, col2), matrix)
-                    matrix = np.array(env.return_game_matrix)
-                    display.update_display(matrix)
-                    pygame.time.wait(200)
+                memory.append((state, action, new_state, step_damage_dealt, episode_over))
 
-                memory.append((state, action, new_state, pts_reward, episode_over))
                 state = new_state
-                step_count += 1
-                episode_total_reward += pts_reward
-                episode_damage_user += reward['damage_on_user']
-                print("steps since last sync: ", step_count)
-                print("pts_reward: ", pts_reward)
                 print("rewards: ", reward)
-                print("highest reward: ", max_reward)
+                print("damage: ", max_damage)
                 print("RUN ID: ", run_id)
+        
+            game_reward = reward["game"]
+            if reward['game'] > 0:
+                game_won = 1
 
             print("optimizing NN")
             mini_batch = memory.sample(self.mini_batch_size)
@@ -198,16 +182,13 @@ class Match3AI():
             epsilon = max(epsilon - 1 / (episodes * 0.9), 0)
             print('syncing the networks')
             target_dqn.load_state_dict(policy_dqn.state_dict())
-            step_count = 0
 
-            print("TOTAL REWARD OF EPISODE: ", episode_total_reward)
-
-            if log: wandb.log({"reward": episode_total_reward, "episodes": i, "epsilon": epsilon, "damage to user": episode_damage_user, 'highest reward': max_reward, "game_won" : game_won})
+            if log: wandb.log({"damage_dealt": damage_dealt, "episodes": i, "epsilon": epsilon, "damage taken": damage_taken, 'highest damage': max_damage, "game_reward": game_reward, "game_won": game_won})
             
-            if max_reward <= episode_total_reward:
+            if max_damage <= damage_dealt:
                 checkpoint = {'target_state': target_dqn.state_dict(), 'policy_state': policy_dqn.state_dict(), 'optimizer': self.optimizer.state_dict()}
                 self.save_checkpoint(checkpoint, run_id)
-                max_reward = episode_total_reward
+                max_damage = damage_dealt
                 print("SAVED PARAMETERS TO FOLDER")
 
         env.close()
@@ -233,8 +214,9 @@ class Match3AI():
         self.optimizer.step()
     
 
-    def test(self, episodes, num_channels, display=False, model_id=0):
+    def test(self, episodes, load_model = False, model_id=0):
         num_actions = 161
+        num_channels = 11
         target_dqn = DQN(in_channels=num_channels, out_actions=num_actions).to(DEVICE)
         policy_dqn = DQN(in_channels=num_channels, out_actions=num_actions).to(DEVICE)
         self.optimizer = torch.optim.Adam(policy_dqn.parameters(), lr=self.learning_rate)
@@ -253,12 +235,7 @@ class Match3AI():
             env = Match3Env()
             obs, infos = env.reset()
             state = self.get_state(obs)
-            step_count = 0
-            
-            if display:
-                pygame.init()
-                matrix = np.array(env.return_game_matrix)
-                display = Display(matrix)
+
 
             episode_over = False
             while not episode_over:
@@ -285,10 +262,8 @@ class Match3AI():
                     pygame.time.wait(200)
 
                 
-                step_count += 1
                 episode_total_reward += pts_reward
                 episode_damage_user += reward['damage_on_user']
-                print("steps since last sync: ", step_count)
                 print("pts_reward: ", pts_reward)
                 # XBLAM should probably print other things like how much hp the monster has or something
                 print("rewards: ", reward)
@@ -301,23 +276,21 @@ def main():
 
     parser.add_argument("-e", "--episodes", type=int, required=True)
     parser.add_argument("-l", "--log", action='store_true')
-    parser.add_argument("-d", "--display", action='store_true')  
     parser.add_argument("-ld", "--load_model", action='store_true') 
-    parser.add_argument("-mid", "--model_id", type=int, required=True)
+    parser.add_argument("-mid", "--model_id", type=int)
     # Parse the arguments
     args = parser.parse_args()
 
     # Use the parsed arguments
     print('episodes:', args.episodes)
     print('log:', args.log)
-    print('display:', args.display)
     print('load model:', args.load_model)
     print('model id:', args.model_id)
     #  episodes, log=False, display=False, load_model=False, model_id=0:
 
     bot = Match3AI()
 
-    bot.train(args.episodes, args.log, args.display, args.load_model, args.model_id)
+    bot.train(args.episodes, args.log, args.load_model, args.model_id)
 
 if __name__ == '__main__':
     main()
