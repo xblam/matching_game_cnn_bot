@@ -215,7 +215,9 @@ class Match3AI():
         self.optimizer.step()
     
 
-    def test(self, episodes, model_id=0):
+    def test(self, episodes, log=False, display=False, model_id=0):
+        current_level = 0
+        highest_level = 0
         num_actions = 161
         num_channels = 11
 
@@ -225,22 +227,30 @@ class Match3AI():
         # set out optmizer
         self.optimizer = torch.optim.Adam(policy_dqn.parameters(), lr=self.learning_rate)
 
+        # get the file path and then load out model of choice
         file_path = os.path.join("model_state_dicts", f"{model_id}_state_dict.pth")
         self.load_checkpoint(file_path, target_dqn, policy_dqn, self.optimizer)
-
+        
         run_id = read_counter(counter_file)
         write_counter(counter_file, run_id + 1)
 
+        if log: wandb.init(project="match3_results", name=f"model: {model_id}, run: {str(run_id)}")
+
+        round_won = False
         for i in range(episodes):
-            print("NEW LIFE STARTED")
-            episode_total_reward = 0
-            episode_damage_user = 0
-            
-            env = Match3Env()
-            obs, infos = env.reset()
-            state = self.get_state(obs)
 
+            num_steps = 0
+            if not (round_won):
+                env = Match3Env()
+                print("NEW LIFE STARTED")
+            obs, infos = env.reset() 
+            if display:
+                pygame.init()
+                matrix = np.array(env.return_game_matrix)
+                game_display = Display(matrix)
 
+            state = self.get_state(obs).to(DEVICE)
+            # for the decision making process we just keep it the same
             episode_over = False
             while not episode_over:
                 valid_moves = [index for index, value in enumerate(infos['action_space']) if value == 1]
@@ -249,30 +259,30 @@ class Match3AI():
                     q_values = policy_dqn(input_tensor)
                     valid_q_values = q_values[0, valid_moves]
                     action = valid_moves[valid_q_values.argmax().item()]
-                action = torch.tensor(action)
+                action = torch.tensor(action).to(DEVICE)
 
+                # still need this because we need obs to get the next state
                 obs, reward, episode_over, infos = env.step(action)
-                state = self.get_state(obs)
-
-                pts_reward = reward['match_damage_on_monster'] * 5 + reward['power_damage_on_monster'] * 5
-                if episode_over:
-                    pts_reward += reward["game"]
-
+                state = self.get_state(obs).to(DEVICE)
+                num_steps += 1
+                print("step number:", num_steps)
+                print("current_level:", current_level)
+                print("highest_level:", highest_level)
+                print(reward)
+                print("run_id:", run_id)
                 if display:
-                    (row1, col1), (row2, col2) = self.action_to_coords(action)
-                    display.animate_switch((row1, col1), (row2, col2), matrix)
+                    (row1,col1), (row2,col2) = self.action_to_coords(action)
+                    game_display.animate_switch((row1,col1),(row2,col2), matrix)
                     matrix = np.array(env.return_game_matrix)
-                    display.update_display(matrix)
-                    pygame.time.wait(200)
+                    game_display.update_display(matrix)
+                    pygame.time.wait(100)
+            if reward['game'] > 0:
+                round_won = reward['game'] > 0
+                current_level += 1
+            else: current_level = 0
+            if current_level > highest_level: highest_level = current_level
 
-                
-                episode_total_reward += pts_reward
-                episode_damage_user += reward['damage_on_user']
-                print("pts_reward: ", pts_reward)
-                # XBLAM should probably print other things like how much hp the monster has or something
-                print("rewards: ", reward)
-                print("RUN ID: ", run_id)
-
+            if log: wandb.log({"current_level:":current_level, "highest_level:":highest_level, "episode:": i}) 
         env.close()
 
 def main():
@@ -280,6 +290,7 @@ def main():
     parser.add_argument("-test", "--run_test", action='store_true')
     parser.add_argument("-e", "--episodes", type=int, required=True)
     parser.add_argument("-l", "--log", action='store_true')
+    parser.add_argument("-d", "--display", action='store_true')
     parser.add_argument("-lm", "--load_model", action='store_true') 
     parser.add_argument("-mid", "--model_id", type=int)
     # Parse the arguments
@@ -289,13 +300,18 @@ def main():
     print('testing:', args.run_test)
     print('episodes:', args.episodes)
     print('log:', args.log)
+    print('display:', args.display)
     print('load model:', args.load_model)
     print('model id:', args.model_id)
     #  episodes, log=False, display=False, load_model=False, model_id=0:
 
     bot = Match3AI()
-    if (args.run_test): print("RUNNING TEST FUNCTION")
-    else: bot.train(args.episodes, args.log, args.load_model, args.model_id)
+    if (args.run_test): 
+        print("RUNNING TEST FUNCTION")
+        bot.test(args.episodes, args.log, args.display, args.model_id)
+    else: 
+        print("RUNNING TRAIN")
+        bot.train(args.episodes, args.log, args.load_model, args.model_id)
 
             
     # if ()

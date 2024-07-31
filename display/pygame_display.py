@@ -65,27 +65,29 @@ class Display():
         pygame.display.flip()
         clock.tick(60)
     # the start and end positions that we are given will be the matrices positions.
-    def animate_switch(self, start_pos, end_pos,matrix, steps=30):
-    
-        # self.window.fill((255, 255, 255))
-
+    def animate_switch(self, start_pos, end_pos, matrix, steps=30):
+        # Unpack start and end positions
         row, col = start_pos
         row2, col2 = end_pos
 
-        # these are the two images that I will be switching
+        # Retrieve the images
         white = self.image_dict.get(15)
-
         image1 = self.image_dict.get(matrix[row][col])
         image2 = self.image_dict.get(matrix[row2][col2])
 
         for step in range(steps):
-            
             # Calculate intermediate positions
             inter_row = row * self.cell_size + (row2 - row) * self.cell_size * step / steps
             inter_col = col * self.cell_size + (col2 - col) * self.cell_size * step / steps
             inter_row2 = row2 * self.cell_size + (row - row2) * self.cell_size * step / steps
             inter_col2 = col2 * self.cell_size + (col - col2) * self.cell_size * step / steps
-            
+        
+            # Ensure intermediate positions are integers
+            inter_row = int(inter_row)
+            inter_col = int(inter_col)
+            inter_row2 = int(inter_row2)
+            inter_col2 = int(inter_col2)
+
             # Draw intermediate positions
             self.window.blit(white, (inter_col, inter_row))
             self.window.blit(white, (inter_col2, inter_row2))
