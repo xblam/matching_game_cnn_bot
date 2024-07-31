@@ -215,11 +215,14 @@ class Match3AI():
         self.optimizer.step()
     
 
-    def test(self, episodes, load_model = False, model_id=0):
+    def test(self, episodes, model_id=0):
         num_actions = 161
         num_channels = 11
+
+        # make the target and policy networks
         target_dqn = DQN(in_channels=num_channels, out_actions=num_actions).to(DEVICE)
         policy_dqn = DQN(in_channels=num_channels, out_actions=num_actions).to(DEVICE)
+        # set out optmizer
         self.optimizer = torch.optim.Adam(policy_dqn.parameters(), lr=self.learning_rate)
 
         file_path = os.path.join("model_state_dicts", f"{model_id}_state_dict.pth")
@@ -274,7 +277,7 @@ class Match3AI():
 
 def main():
     parser = argparse.ArgumentParser()
-
+    parser.add_argument("-test", "--run_test", action='store_true')
     parser.add_argument("-e", "--episodes", type=int, required=True)
     parser.add_argument("-l", "--log", action='store_true')
     parser.add_argument("-lm", "--load_model", action='store_true') 
@@ -283,6 +286,7 @@ def main():
     args = parser.parse_args()
 
     # Use the parsed arguments
+    print('testing:', args.run_test)
     print('episodes:', args.episodes)
     print('log:', args.log)
     print('load model:', args.load_model)
@@ -290,8 +294,12 @@ def main():
     #  episodes, log=False, display=False, load_model=False, model_id=0:
 
     bot = Match3AI()
+    if (args.run_test): print("RUNNING TEST FUNCTION")
+    else: bot.train(args.episodes, args.log, args.load_model, args.model_id)
 
-    bot.train(args.episodes, args.log, args.load_model, args.model_id)
+            
+    # if ()
+    # bot.train(args.episodes, args.log, args.load_model, args.model_id)
 
 if __name__ == '__main__':
     main()
