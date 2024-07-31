@@ -144,7 +144,6 @@ class Match3AI():
 
             episode_over = False
             while not episode_over: # each step of the game
-                step_damage_dealt = 0
                 valid_moves = [index for index, value in enumerate(infos['action_space']) if value == 1]
                 if np.random.rand() < epsilon:
                     action = np.random.choice(valid_moves)
@@ -161,7 +160,7 @@ class Match3AI():
                 new_state = self.get_state(obs).to(DEVICE)
 
                 # only reason we need this is to pass into memory
-                step_damage_dealt += reward['match_damage_on_monster'] + reward['power_damage_on_monster']
+                step_damage_dealt = reward['match_damage_on_monster'] + reward['power_damage_on_monster'] # if we do this we dont need to reset it to 0
                 damage_dealt += step_damage_dealt
                 damage_taken += reward['damage_on_user']
 
@@ -169,12 +168,14 @@ class Match3AI():
 
                 state = new_state
                 print("rewards: ", reward)
-                print("damage: ", max_damage)
+                print("max damage: ", max_damage)
                 print("RUN ID: ", run_id)
         
             game_reward = reward["game"]
             if reward['game'] > 0:
                 game_won = 1
+
+            episode_reward = damage_dealt + game_reward
 
             print("optimizing NN")
             mini_batch = memory.sample(self.mini_batch_size)
@@ -183,7 +184,7 @@ class Match3AI():
             print('syncing the networks')
             target_dqn.load_state_dict(policy_dqn.state_dict())
 
-            if log: wandb.log({"damage_dealt": damage_dealt, "episodes": i, "epsilon": epsilon, "damage taken": damage_taken, 'highest damage': max_damage, "game_reward": game_reward, "game_won": game_won})
+            if log: wandb.log({"damage_dealt": damage_dealt, "episodes": i, "epsilon": epsilon, "damage taken": damage_taken, 'highest damage': max_damage, "game_reward": game_reward, "game_won": game_won, "total_reward_episode" : episode_reward})
             
             if max_damage <= damage_dealt:
                 checkpoint = {'target_state': target_dqn.state_dict(), 'policy_state': policy_dqn.state_dict(), 'optimizer': self.optimizer.state_dict()}
@@ -276,7 +277,7 @@ def main():
 
     parser.add_argument("-e", "--episodes", type=int, required=True)
     parser.add_argument("-l", "--log", action='store_true')
-    parser.add_argument("-ld", "--load_model", action='store_true') 
+    parser.add_argument("-lm", "--load_model", action='store_true') 
     parser.add_argument("-mid", "--model_id", type=int)
     # Parse the arguments
     args = parser.parse_args()

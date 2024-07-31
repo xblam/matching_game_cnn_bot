@@ -70,3 +70,8 @@ Thanks for [kamildar/gym-match3](https://github.com/kamildar/gym-match3) publish
 ## M3 Training
 
 - To understand board on `wandb`, you can follow [stackexchange](https://datascience.stackexchange.com/questions/115243/understanding-the-tensorboard-plots-on-a-stable-baseline3s-ppo).
+
+- Other things to keep in mind:
+  if you load an state dictionary, you will have to change the inputs and outputs of NN to to correct amount that the older model ran on
+  every single time you run, a model state will automatically be saved
+  all model saves are safe in the sense that non of the code will write or mess up the model file, as long as the run_counter file is not touched.
