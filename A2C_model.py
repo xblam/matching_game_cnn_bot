@@ -52,9 +52,12 @@ class A2CModel():
         obs_input_layers = obs[[1,2,3,4,5,6,7,8,9,10,13]]
         return obs_input_layers
 
-    def train(self, num_episodes = int):
-        actor = ActorNN()
-        critic = CriticNN()
+    def train(self, num_episodes = 1):
+        self.actor = ActorNN()
+        self.critic = CriticNN()
+        self.learning_rate = 0.001
+        self.actor_optimizer = T.optim.Adam(self.actor.parameters(), lr = self.learning_rate)
+        self.critic_optimizer = T.optim.Adam(self.critic.parameters(), lr = self.learning_rate)
 
         current_level = 0
         max_level = 0
@@ -64,30 +67,31 @@ class A2CModel():
                 env = Match3Env()
             obs,infos = env.reset()
 
-            game_over = False
-            while not game_over: # this will indicate each step we take in the game 
+            episode_reward = 0
+            episode_over = False
+            while not episode_over: # this will indicate each step we take in the game 
                 state = self.get_state(obs)
                 input_tensor = state.unsqueeze(0)
 
-                action = T.tensor(actor(input_tensor)).argmax().item() # actor takes in state and outputs action
-                second_action = T.tensor(critic(input_tensor))
+                valid_moves = [index for index, value in enumerate(infos['action_space']) if value == 1] # first I have to get the valid moves
+                model_action = actor(input_tensor) # then we get the prediction of the model
+                print("model actions:", model_action)
+                action = valid_moves[model_action.argmax().item()] # gives the action with the highest value amongst all the valid moves
 
                 print("action:", action)
-                print('critic:', second_action)
-
 
                 # critic takes in action and state and outputs value
                 # value = critic(action, state)
-                print(current_episode)
                 obs, reward, episode_over, infos = env.step(action) # we use the action to get the new_state and such
                 new_state = self.get_state(obs) # get next state
-                episode_reward = reward['power_damage_on_monster'] + reward['match_damage_on_monster']
-                print(episode_reward)
+                step_reward = reward['power_damage_on_monster'] + reward['match_damage_on_monster'] # get the reward of the step
+                episode_reward += step_reward
+                print('reward:', reward)
 
                 # TODO: have the program do something with the move we selected
                 # find a way to get the new state
 
-                game_over = True #XBLAM placeholder for testing, will remove when we have the code up and running.
+
 
 
 
@@ -95,14 +99,14 @@ class A2CModel():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-e', '--episodes', type=int, required=True)
+    parser.add_argument('-e', '--episodes', type=int)
 
     args = parser.parse_args()
 
     print("episodes:", args.episodes)
 
     bot = A2CModel()
-    bot.train(args.episodes)
+    bot.train(args.episodes) if args.episodes else bot.train()
 
 if __name__ == "__main__":
     main()

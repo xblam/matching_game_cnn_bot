@@ -112,11 +112,13 @@ class Match3AI():
         policy.load_state_dict(state_dict['policy_state'])
         optimizer.load_state_dict(state_dict['optimizer'])
     
-    def train(self, episodes, log=False, load_model=False, model_id=0):
+    def train(self, episodes, log=False, load_model=False, model_id=0, retrain = False):
         highest_level = current_level = 0
         num_actions = 161
         num_channels = 11
         epsilon = 1
+        if retrain:
+            epsilon = 0.5
         memory = ReplayMemory(self.memory_size)
 
         policy_dqn = DQN(in_channels=num_channels, out_actions=num_actions).to(DEVICE)
@@ -176,13 +178,13 @@ class Match3AI():
             else: current_level = 0
             if current_level > highest_level: highest_level = current_level
             episode_reward = damage_dealt + reward['game']
-
-            print("optimizing NN")
-            mini_batch = memory.sample(self.mini_batch_size)
-            self.optimize(mini_batch, policy_dqn, target_dqn)
-            epsilon = max(epsilon - 1 / (episodes * 0.9), 0)
-            print('syncing the networks')
-            target_dqn.load_state_dict(policy_dqn.state_dict())
+            if len(memory) > self.mini_batch_size:
+                print("optimizing NN")
+                mini_batch = memory.sample(self.mini_batch_size)
+                self.optimize(mini_batch, policy_dqn, target_dqn)
+                epsilon = max(epsilon - 1 / (episodes * 0.9), 0)
+                print('syncing the networks')
+                target_dqn.load_state_dict(policy_dqn.state_dict())
 
             if log: wandb.log({"damage_dealt": damage_dealt, "episodes": i, "epsilon": epsilon, "damage taken": damage_taken, 'highest damage': max_damage, "game_reward": reward['game'], "total_reward_episode" : episode_reward, "highest_level" : highest_level, "current_level":current_level})
             
@@ -283,7 +285,9 @@ class Match3AI():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--run_test", action='store_true')
+    parser.add_argument("-test", "--run_test", action='store_true')
+    parser.add_argument("-train", "--run_train", action="store_true")
+    parser.add_argument("-retrain", "--run_retrain", action="store_true")
     parser.add_argument("-e", "--episodes", type=int, required=True)
     parser.add_argument("-l", "--log", action='store_true')
     parser.add_argument("-d", "--display", action='store_true')
@@ -293,10 +297,12 @@ def main():
 
     # Use the parsed arguments
     print('testing:', args.run_test)
+    print('training:', args.run_train)
+    print('retraining:', args.run_retrain)
     print('episodes:', args.episodes)
     print('log:', args.log)
     print('display:', args.display)
-    print('loading_model: ', args.load_model)
+    print('loading_model:', args.load_model)
 
     bot = Match3AI()
     if (args.run_test): 
@@ -305,10 +311,10 @@ def main():
         bot.test(args.episodes, args.log, args.display, args.load_model)
     else: 
         # only need to run this with -e
-        print("RUNNING TRAIN")
+        print("RUNNING RETRAIN") if args.run_retrain else print("RUNNING TRAIN")
         load_model = True if (args.load_model) else False
         model_id = args.load_model
-        bot.train(args.episodes, args.log, load_model, model_id)
+        bot.train(args.episodes, args.log, load_model, model_id, args.run_retrain)
 
             
     # if ()
