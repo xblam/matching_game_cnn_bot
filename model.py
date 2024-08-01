@@ -112,10 +112,13 @@ class Match3AI():
         policy.load_state_dict(state_dict['policy_state'])
         optimizer.load_state_dict(state_dict['optimizer'])
     
-    def train(self, episodes, log=False, load_model=False, model_id=0):
+    def train(self, episodes, log=False, load_model=False, model_id=0, retrain = False):
+        highest_level = current_level = 0
         num_actions = 161
         num_channels = 11
         epsilon = 1
+        if retrain:
+            epsilon = 0.5
         memory = ReplayMemory(self.memory_size)
 
         policy_dqn = DQN(in_channels=num_channels, out_actions=num_actions).to(DEVICE)
@@ -136,9 +139,9 @@ class Match3AI():
 
         for i in range(episodes): # each episode of the game
             print("NEW LIFE STARTED")
-            damage_dealt = damage_taken = game_won = 0
-
-            env = Match3Env()
+            if current_level == 0:
+                damage_dealt = damage_taken = 0
+                env = Match3Env() # reset the game to the original state
             obs, infos = env.reset()
             state = self.get_state(obs).to(DEVICE)
 
@@ -160,7 +163,7 @@ class Match3AI():
                 new_state = self.get_state(obs).to(DEVICE)
 
                 # only reason we need this is to pass into memory
-                step_damage_dealt = reward['match_damage_on_monster'] + reward['power_damage_on_monster'] # if we do this we dont need to reset it to 0
+                step_damage_dealt = reward['match_damage_on_monster'] + reward['power_damage_on_monster'] # in some sense this is the only metric that really matters to the network
                 damage_dealt += step_damage_dealt
                 damage_taken += reward['damage_on_user']
 
@@ -171,20 +174,19 @@ class Match3AI():
                 print("max damage: ", max_damage)
                 print("RUN ID: ", run_id)
         
-            game_reward = reward["game"]
-            if reward['game'] > 0:
-                game_won = 1
+            if reward['game'] > 0: current_level += 1
+            else: current_level = 0
+            if current_level > highest_level: highest_level = current_level
+            episode_reward = damage_dealt + reward['game']
+            if len(memory) > self.mini_batch_size:
+                print("optimizing NN")
+                mini_batch = memory.sample(self.mini_batch_size)
+                self.optimize(mini_batch, policy_dqn, target_dqn)
+                epsilon = max(epsilon - 1 / (episodes * 0.9), 0)
+                print('syncing the networks')
+                target_dqn.load_state_dict(policy_dqn.state_dict())
 
-            episode_reward = damage_dealt + game_reward
-
-            print("optimizing NN")
-            mini_batch = memory.sample(self.mini_batch_size)
-            self.optimize(mini_batch, policy_dqn, target_dqn)
-            epsilon = max(epsilon - 1 / (episodes * 0.9), 0)
-            print('syncing the networks')
-            target_dqn.load_state_dict(policy_dqn.state_dict())
-
-            if log: wandb.log({"damage_dealt": damage_dealt, "episodes": i, "epsilon": epsilon, "damage taken": damage_taken, 'highest damage': max_damage, "game_reward": game_reward, "game_won": game_won, "total_reward_episode" : episode_reward})
+            if log: wandb.log({"damage_dealt": damage_dealt, "episodes": i, "epsilon": epsilon, "damage taken": damage_taken, 'highest damage': max_damage, "game_reward": reward['game'], "total_reward_episode" : episode_reward, "highest_level" : highest_level, "current_level":current_level})
             
             if max_damage <= damage_dealt:
                 checkpoint = {'target_state': target_dqn.state_dict(), 'policy_state': policy_dqn.state_dict(), 'optimizer': self.optimizer.state_dict()}
@@ -216,8 +218,7 @@ class Match3AI():
     
 
     def test(self, episodes, log=False, display=False, model_id=0):
-        current_level = 0
-        highest_level = 0
+        current_level = highest_level = 0
         num_actions = 161
         num_channels = 11
 
@@ -236,11 +237,10 @@ class Match3AI():
 
         if log: wandb.init(project="match3_results", name=f"model: {model_id}, run: {str(run_id)}")
 
-        round_won = False
         for i in range(episodes):
 
             num_steps = 0
-            if not (round_won):
+            if current_level == 0:
                 env = Match3Env()
                 print("NEW LIFE STARTED")
             obs, infos = env.reset() 
@@ -276,9 +276,7 @@ class Match3AI():
                     matrix = np.array(env.return_game_matrix)
                     game_display.update_display(matrix)
                     pygame.time.wait(100)
-            if reward['game'] > 0:
-                round_won = reward['game'] > 0
-                current_level += 1
+            if reward['game'] > 0: current_level += 1
             else: current_level = 0
             if current_level > highest_level: highest_level = current_level
 
@@ -288,30 +286,35 @@ class Match3AI():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-test", "--run_test", action='store_true')
+    parser.add_argument("-train", "--run_train", action="store_true")
+    parser.add_argument("-retrain", "--run_retrain", action="store_true")
     parser.add_argument("-e", "--episodes", type=int, required=True)
     parser.add_argument("-l", "--log", action='store_true')
     parser.add_argument("-d", "--display", action='store_true')
-    parser.add_argument("-lm", "--load_model", action='store_true') 
-    parser.add_argument("-mid", "--model_id", type=int)
+    parser.add_argument("-ldmd", "--load_model", type=int, help="put the id of the pretrained model you want to load") 
     # Parse the arguments
     args = parser.parse_args()
 
     # Use the parsed arguments
     print('testing:', args.run_test)
+    print('training:', args.run_train)
+    print('retraining:', args.run_retrain)
     print('episodes:', args.episodes)
     print('log:', args.log)
     print('display:', args.display)
-    print('load model:', args.load_model)
-    print('model id:', args.model_id)
-    #  episodes, log=False, display=False, load_model=False, model_id=0:
+    print('loading_model:', args.load_model)
 
     bot = Match3AI()
     if (args.run_test): 
+        # run this with -t, -e, and -ldm
         print("RUNNING TEST FUNCTION")
-        bot.test(args.episodes, args.log, args.display, args.model_id)
+        bot.test(args.episodes, args.log, args.display, args.load_model)
     else: 
-        print("RUNNING TRAIN")
-        bot.train(args.episodes, args.log, args.load_model, args.model_id)
+        # only need to run this with -e
+        print("RUNNING RETRAIN") if args.run_retrain else print("RUNNING TRAIN")
+        load_model = True if (args.load_model) else False
+        model_id = args.load_model
+        bot.train(args.episodes, args.log, load_model, model_id, args.run_retrain)
 
             
     # if ()
