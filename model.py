@@ -113,6 +113,7 @@ class Match3AI():
         optimizer.load_state_dict(state_dict['optimizer'])
     
     def train(self, episodes, log=False, load_model=False, model_id=0):
+        highest_level = current_level = 0
         num_actions = 161
         num_channels = 11
         epsilon = 1
@@ -137,8 +138,8 @@ class Match3AI():
         for i in range(episodes): # each episode of the game
             print("NEW LIFE STARTED")
             damage_dealt = damage_taken = game_won = 0
-
-            env = Match3Env()
+            if current_level == 0:
+                env = Match3Env() # reset the game to the original state
             obs, infos = env.reset()
             state = self.get_state(obs).to(DEVICE)
 
@@ -171,11 +172,10 @@ class Match3AI():
                 print("max damage: ", max_damage)
                 print("RUN ID: ", run_id)
         
-            game_reward = reward["game"]
-            if reward['game'] > 0:
-                game_won = 1
-
-            episode_reward = damage_dealt + game_reward
+            if reward['game'] > 0: current_level += 1
+            else: current_level = 0
+            if current_level > highest_level: highest_level = current_level
+            episode_reward = damage_dealt + reward['game']
 
             print("optimizing NN")
             mini_batch = memory.sample(self.mini_batch_size)
@@ -184,7 +184,7 @@ class Match3AI():
             print('syncing the networks')
             target_dqn.load_state_dict(policy_dqn.state_dict())
 
-            if log: wandb.log({"damage_dealt": damage_dealt, "episodes": i, "epsilon": epsilon, "damage taken": damage_taken, 'highest damage': max_damage, "game_reward": game_reward, "game_won": game_won, "total_reward_episode" : episode_reward})
+            if log: wandb.log({"damage_dealt": damage_dealt, "episodes": i, "epsilon": epsilon, "damage taken": damage_taken, 'highest damage': max_damage, "game_reward": reward['game'], "game_won": game_won, "total_reward_episode" : episode_reward, "highest_level" : highest_level, "current_level":current_level})
             
             if max_damage <= damage_dealt:
                 checkpoint = {'target_state': target_dqn.state_dict(), 'policy_state': policy_dqn.state_dict(), 'optimizer': self.optimizer.state_dict()}
@@ -216,8 +216,7 @@ class Match3AI():
     
 
     def test(self, episodes, log=False, display=False, model_id=0):
-        current_level = 0
-        highest_level = 0
+        current_level = highest_level = 0
         num_actions = 161
         num_channels = 11
 
@@ -236,11 +235,10 @@ class Match3AI():
 
         if log: wandb.init(project="match3_results", name=f"model: {model_id}, run: {str(run_id)}")
 
-        round_won = False
         for i in range(episodes):
 
             num_steps = 0
-            if not (round_won):
+            if current_level == 0:
                 env = Match3Env()
                 print("NEW LIFE STARTED")
             obs, infos = env.reset() 
@@ -276,9 +274,7 @@ class Match3AI():
                     matrix = np.array(env.return_game_matrix)
                     game_display.update_display(matrix)
                     pygame.time.wait(100)
-            if reward['game'] > 0:
-                round_won = reward['game'] > 0
-                current_level += 1
+            if reward['game'] > 0: current_level += 1
             else: current_level = 0
             if current_level > highest_level: highest_level = current_level
 
@@ -287,12 +283,11 @@ class Match3AI():
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-test", "--run_test", action='store_true')
+    parser.add_argument("-t", "--run_test", action='store_true')
     parser.add_argument("-e", "--episodes", type=int, required=True)
     parser.add_argument("-l", "--log", action='store_true')
     parser.add_argument("-d", "--display", action='store_true')
-    parser.add_argument("-lm", "--load_model", action='store_true') 
-    parser.add_argument("-mid", "--model_id", type=int)
+    parser.add_argument("-ldm", "--load_model", type=int, help="put the id of the pretrained model you want to load") 
     # Parse the arguments
     args = parser.parse_args()
 
@@ -301,17 +296,19 @@ def main():
     print('episodes:', args.episodes)
     print('log:', args.log)
     print('display:', args.display)
-    print('load model:', args.load_model)
-    print('model id:', args.model_id)
-    #  episodes, log=False, display=False, load_model=False, model_id=0:
+    print('loading_model: ', args.load_model)
 
     bot = Match3AI()
     if (args.run_test): 
+        # run this with -t, -e, and -ldm
         print("RUNNING TEST FUNCTION")
-        bot.test(args.episodes, args.log, args.display, args.model_id)
+        bot.test(args.episodes, args.log, args.display, args.load_model)
     else: 
+        # only need to run this with -e
         print("RUNNING TRAIN")
-        bot.train(args.episodes, args.log, args.load_model, args.model_id)
+        load_model = True if (args.load_model) else False
+        model_id = args.load_model
+        bot.train(args.episodes, args.log, load_model, model_id)
 
             
     # if ()
