@@ -137,8 +137,8 @@ class Match3AI():
 
         for i in range(episodes): # each episode of the game
             print("NEW LIFE STARTED")
-            damage_dealt = damage_taken = game_won = 0
             if current_level == 0:
+                damage_dealt = damage_taken = 0
                 env = Match3Env() # reset the game to the original state
             obs, infos = env.reset()
             state = self.get_state(obs).to(DEVICE)
@@ -161,7 +161,7 @@ class Match3AI():
                 new_state = self.get_state(obs).to(DEVICE)
 
                 # only reason we need this is to pass into memory
-                step_damage_dealt = reward['match_damage_on_monster'] + reward['power_damage_on_monster'] # if we do this we dont need to reset it to 0
+                step_damage_dealt = reward['match_damage_on_monster'] + reward['power_damage_on_monster'] # in some sense this is the only metric that really matters to the network
                 damage_dealt += step_damage_dealt
                 damage_taken += reward['damage_on_user']
 
@@ -184,7 +184,7 @@ class Match3AI():
             print('syncing the networks')
             target_dqn.load_state_dict(policy_dqn.state_dict())
 
-            if log: wandb.log({"damage_dealt": damage_dealt, "episodes": i, "epsilon": epsilon, "damage taken": damage_taken, 'highest damage': max_damage, "game_reward": reward['game'], "game_won": game_won, "total_reward_episode" : episode_reward, "highest_level" : highest_level, "current_level":current_level})
+            if log: wandb.log({"damage_dealt": damage_dealt, "episodes": i, "epsilon": epsilon, "damage taken": damage_taken, 'highest damage': max_damage, "game_reward": reward['game'], "total_reward_episode" : episode_reward, "highest_level" : highest_level, "current_level":current_level})
             
             if max_damage <= damage_dealt:
                 checkpoint = {'target_state': target_dqn.state_dict(), 'policy_state': policy_dqn.state_dict(), 'optimizer': self.optimizer.state_dict()}
@@ -287,7 +287,7 @@ def main():
     parser.add_argument("-e", "--episodes", type=int, required=True)
     parser.add_argument("-l", "--log", action='store_true')
     parser.add_argument("-d", "--display", action='store_true')
-    parser.add_argument("-ldm", "--load_model", type=int, help="put the id of the pretrained model you want to load") 
+    parser.add_argument("-ldmd", "--load_model", type=int, help="put the id of the pretrained model you want to load") 
     # Parse the arguments
     args = parser.parse_args()
 
