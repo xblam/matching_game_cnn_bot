@@ -24,6 +24,7 @@ wheels/
 .installed.cfg
 *.egg
 MANIFEST
+*.jpg
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -34,7 +35,8 @@ MANIFEST
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
-run_counter.txt
+*run_counter.txt
+
 
 # Unit test / coverage reports
 htmlcov/
