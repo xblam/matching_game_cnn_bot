@@ -75,3 +75,11 @@ Thanks for [kamildar/gym-match3](https://github.com/kamildar/gym-match3) publish
   if you load an state dictionary, you will have to change the inputs and outputs of NN to to correct amount that the older model ran on
   every single time you run, a model state will automatically be saved
   all model saves are safe in the sense that non of the code will write or mess up the model file, as long as the run_counter file is not touched.
+
+## M3 A2C model
+
+- I had a lot more difficulties implementing this model, so there are much more features for testing and troubleshooting available.
+- this model is ran similar arguments to the first, where we specify the episodes, whether or not we log, and whether or not we are running it with an older model.
+- unlike the DQN, I set the a2c model to update every 25 moves, since I did not want there to be too much data per update, plus I wanted to regularly check the loss value of the network. Everything else will update every episode (either we die or kill the monster or reach the step count of 100).
+- after every run of the A2C model, there is a profiler to let us know where the bottlenecks of the program is (used to test cuda)
+- I also put the code for updating the a2c network into its own function so I could call it easier within my code.
