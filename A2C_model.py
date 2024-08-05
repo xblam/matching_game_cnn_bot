@@ -191,7 +191,7 @@ class A2CModel():
                 current_level += 1
             else: current_level = 0
 
-            if log: wandb.log({"episode_damage":episode_damage, "current_level":current_level, "episode":current_episode, 'game reward':reward['game'], 'total reward':reward['game']+episode_damage})
+            if log: wandb.log({"episode_damage":episode_damage, "current_level":current_level, "episode":current_episode, 'game reward':reward['game'], 'total reward':reward['game']+episode_damage, })
 
         env.close()
 
