@@ -139,8 +139,9 @@ class Match3AI():
 
         for i in range(episodes): # each episode of the game
             print("NEW LIFE STARTED")
+            damage_taken = 0
             if current_level == 0:
-                damage_dealt = damage_taken = 0
+                damage_dealt = 0
                 env = Match3Env() # reset the game to the original state
             obs, infos = env.reset()
             state = self.get_state(obs).to(DEVICE)
