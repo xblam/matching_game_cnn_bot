@@ -34,14 +34,13 @@ class DQN(nn.Module):
     def __init__(self, in_channels, out_actions):
         super().__init__()
         self.conv_block1 = nn.Sequential(
-            nn.Conv2d(in_channels=in_channels, out_channels=10, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels=in_channels, out_channels=20, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.Conv2d(in_channels=10, out_channels=10, kernel_size=3, stride=1, padding=1),
+            nn.Conv2d(in_channels=20, out_channels=20, kernel_size=3, stride=1, padding=1),
             nn.ReLU(),
-            nn.MaxPool2d(kernel_size=2)
         )
         self.layer_stack = nn.Sequential(
-            nn.Linear(in_features=200, out_features=256),
+            nn.Linear(in_features=20*9*10, out_features=256),
             nn.ReLU(),
             nn.Linear(in_features=256, out_features=out_actions)
         )

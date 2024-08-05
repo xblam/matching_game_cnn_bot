@@ -110,7 +110,6 @@ class A2CModel():
         run_id = read_counter(counter_file) # for all files we will be assigning an id to the run
         write_counter(counter_file, run_id + 1)
 
-
         if log: wandb.init(project="match3_a2c", name=str(run_id))
 
         max_damage = 0
@@ -119,7 +118,6 @@ class A2CModel():
         self.learning_rate = 0.001
         self.actor_optimizer = T.optim.Adam(self.actor.parameters(), lr = self.learning_rate)
         self.critic_optimizer = T.optim.Adam(self.critic.parameters(), lr = self.learning_rate)
-
 
         for current_episode in range(num_episodes): # each episode will be one playthrough of a levela
             print('STARTED NEW LIFE')
@@ -140,8 +138,6 @@ class A2CModel():
                 state = state.to(DEVICE)
 
                 distribution, value = self.actor(state), self.critic(state)
-                print('values',value)
-                print("distribiution", distribution)
                 
                 distribution_probs = distribution.probs # get the actual probabilities
                 valid_moves = T.tensor(infos['action_space']).to(DEVICE)
@@ -178,6 +174,11 @@ class A2CModel():
                 max_damage = episode_damage
                 print("SAVED PARAMETERS TO FOLDER")
 
+            if reward['game'] > 0:
+                print('MONSTER DIED')
+                current_level += 1
+            else: current_level = 0
+
             # optimizing the model
             next_value = self.critic(new_state)
             returns = self.compute_returns(next_value, reward_list, mask_list)
@@ -200,21 +201,11 @@ class A2CModel():
             self.critic_optimizer.step()
         env.close()
 
-# makes the models
-
-# think about what the compute returns functions does
-
-# train iters
-# sets optimizers
-
-
-
-            # code under this point means that the match has ended
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-e', '--episodes', type=int)
     parser.add_argument('-l', '--log', action="store_true")
+    parser.add_argument('-ldmd', '--load_model', action='store_true')
 
     args = parser.parse_args()
 
