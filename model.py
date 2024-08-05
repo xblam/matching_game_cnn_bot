@@ -10,7 +10,7 @@ import os
 import argparse
 
 
-counter_file = "run_counter.txt"
+counter_file = "model_state_dicts/run_counter.txt"
 def read_counter(file_path):
     if os.path.exists(file_path):
         with open(file_path, 'r') as file:

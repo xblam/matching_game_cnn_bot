@@ -56,3 +56,14 @@ logging.info(f"the value of x is {x}")
 logging.warning("warning")
 logging.error("error")
 logging.critical("critical")
+
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-e', '--episodes', type=int)
+parser.add_argument('-l', '--log', action="store_true")
+parser.add_argument('-ldmd', '--load_model', type=int)
+
+args = parser.parse_args()
+
+print('true') if args.episodes else (print('fase'))
