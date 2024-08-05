@@ -174,8 +174,9 @@ class A2CModel():
                 print("current episode:", current_episode)
                 print('step_count:', step_count)
                 
-                if(step_count%25==0):
+                if(step_count%25==0 or episode_over):
                     self.update_model(new_state, self.reward_list, self.mask_list, self.log_prob_list, self.value_list)
+                    if log:wandb.log({'actor loss':self.actor_loss, 'critic loss':self.critic_loss})
             
             # CODE UNDER RUNS WHEN THE EPISODE IS OVER
 
@@ -190,7 +191,7 @@ class A2CModel():
                 current_level += 1
             else: current_level = 0
 
-            if log: wandb.log({"episode_damage":episode_damage, "current_level":current_level, "episode":current_episode, 'game reward':reward['game'], 'total reward':reward['game']+episode_damage, 'actor loss':self.actor_loss, 'critic loss':self.critic_loss})
+            if log: wandb.log({"episode_damage":episode_damage, "current_level":current_level, "episode":current_episode, 'game reward':reward['game'], 'total reward':reward['game']+episode_damage})
 
         env.close()
 
