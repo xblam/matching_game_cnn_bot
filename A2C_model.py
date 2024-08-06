@@ -126,15 +126,14 @@ class A2CModel():
         write_counter(counter_file, run_id + 1)
 
         if log: wandb.init(project="match3_a2c", name=str(run_id))
+        env = Match3Env() # made the object here
 
         for current_episode in range(num_episodes): # each episode will be one playthrough of a levela
             print('STARTED NEW LIFE')
             episode_damage = 0
             step_count = 0
 
-            # if (current_level == 0):
-            env = Match3Env() # we want to increment the level 
-            obs,infos = env.reset() #XBLAM can change this to underscore later if need be
+            obs,infos = env.randomize_level() # we actually want it to go through every level so just move on when you die 
 
             episode_over = False
             while not episode_over: # iterate over life 
@@ -168,15 +167,27 @@ class A2CModel():
                 print('episode damage', episode_damage)
                 print('max damage:', max_damage)
                 print('reward:', reward)
-                print('run id:', run_id)
                 print("current episode:", current_episode)
                 print('step_count:', step_count)
+                print('run id:', run_id)
                 
-                if(step_count%25==0 or episode_over):
+                if(step_count%25==0 and not episode_over):
                     self.update_model(new_state, self.reward_list, self.mask_list, self.log_prob_list, self.value_list)
                     if log:wandb.log({'actor loss':self.actor_loss, 'critic loss':self.critic_loss})
             
             # CODE UNDER RUNS WHEN THE EPISODE IS OVER
+            #make sure that if we win the round we give the model a huge reward, and dont punish if lose since it could be a good move at unfortunate
+            # if we beat the level, update the model with a huge reward.
+            if reward['game'] > 0:
+                print('MONSTER DIED')
+                current_level += 1
+                # find a way to increase the reward of the model before we train it.
+                self.reward_list[-1] += reward['game']
+            else: current_level = 0
+            
+            # then after we do that we can update the
+            self.update_model(new_state, self.reward_list, self.mask_list, self.log_prob_list, self.value_list)
+                
 
             if max_damage <= episode_damage: # save parameters of the best model
                 checkpoint = {'actor_state': self.actor.state_dict(), 'critic_state': self.critic.state_dict(), 'actor_optimizer': self.actor_optimizer.state_dict(), 'critic_optimizer': self.critic_optimizer.state_dict()}
@@ -184,10 +195,7 @@ class A2CModel():
                 max_damage = episode_damage
                 print("SAVED PARAMETERS TO FOLDER")
 
-            if reward['game'] > 0:
-                print('MONSTER DIED')
-                current_level += 1
-            else: current_level = 0
+
 
             if log: wandb.log({"episode_damage":episode_damage, "current_level":current_level, "episode":current_episode, 'game reward':reward['game'], 'total reward':reward['game']+episode_damage})
 
