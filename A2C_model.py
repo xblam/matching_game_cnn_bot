@@ -143,26 +143,23 @@ class A2CModel():
             while not episode_over: # iterate over life 
 
                 state = obs.unsqueeze(0).to(DEVICE)
-                distribution, value = self.actor(state), self.critic(state)
+                distribution, self.value = self.actor(state), self.critic(state)
                 valid_moves = T.tensor(infos['action_space']).to(DEVICE)
                 masked_distribution = distribution.probs*valid_moves
                 new_distribution = T.distributions.Categorical(probs=masked_distribution)
                 action = new_distribution.sample() # get the action 
-                # action = distribution.sample()
 
                 # play the game and update the state
                 obs, reward, episode_over, infos = env.step(action)
                 new_state = obs.unsqueeze(0).to(DEVICE)
                 
-                log_prob = distribution.log_prob(action).unsqueeze(0)
-                self.log_prob_list.append(log_prob)
-                self.value_list.append(value)
+                self.log_prob = distribution.log_prob(action).unsqueeze(0)
                 
                 step_damage = reward['power_damage_on_monster'] + reward['match_damage_on_monster'] 
                 episode_damage += step_damage
 
-                self.reward_list.append(T.tensor([step_damage]).to(DEVICE))
-                self.mask_list.append(T.tensor([1-episode_over]).to(DEVICE))
+                self.reward = T.tensor([step_damage]).to(DEVICE)
+                self.mask = T.tensor([1-episode_over]).to(DEVICE)
                 
                 state = new_state
                 step_count += 1
@@ -175,24 +172,19 @@ class A2CModel():
                 print('step_count:', step_count)
                 print('run id:', run_id)
                 
-                if(step_count%25==0 and not episode_over):
-                    self.update_model(new_state, self.reward_list, self.mask_list, self.log_prob_list, self.value_list)
-                    if log:wandb.log({'actor loss':self.actor_loss, 'critic loss':self.critic_loss})
-            
+                # if the round is over, we will reward the ai with the result
+                if episode_over and reward['game'] > 0: self.reward += reward['game'] 
+                self.update_model(new_state, self.reward, self.mask, self.log_prob, self.value) # changed this to update after every move so that it learns faster
+
             # CODE UNDER RUNS WHEN THE EPISODE IS OVER
-            #make sure that if we win the round we give the model a huge reward, and dont punish if lose since it could be a good move at unfortunate
-            # if we beat the level, update the model with a huge reward.
+
+            if log:wandb.log({'actor loss':self.actor_loss, 'critic loss':self.critic_loss})
+
             if reward['game'] > 0:
                 print('MONSTER DIED')
                 current_level += 1
-                # find a way to increase the reward of the model before we train it.
-                self.reward_list[-1] += reward['game']
             else: current_level = 0
             
-            # then after we do that we can update the
-            self.update_model(new_state, self.reward_list, self.mask_list, self.log_prob_list, self.value_list)
-                
-
             if max_damage <= episode_damage: # save parameters of the best model
                 checkpoint = {'actor_state': self.actor.state_dict(), 'critic_state': self.critic.state_dict(), 'actor_optimizer': self.actor_optimizer.state_dict(), 'critic_optimizer': self.critic_optimizer.state_dict()}
                 self.save_checkpoint(checkpoint, run_id)
@@ -203,29 +195,33 @@ class A2CModel():
 
         env.close()
 
-    def update_model(self, new_state, reward_list, mask_list, log_prob_list, value_list):
-        print("UPDATING MODEL")
-        # optimizing the model
-        next_value = self.critic(new_state)
-        returns = self.compute_returns(next_value, reward_list, mask_list)
+    def update_model(self, new_state, reward, mask, log_prob, value, gamma=0.99):
 
-        log_prob_list = T.cat(log_prob_list)
-        value_list = T.cat(value_list)
-        returns = T.cat(returns).detach() # not really sure why we have to detach it
+        # Compute the value for the new state
+        future_value = self.critic(new_state)
+    
+        # Compute returns
+        returns = reward + gamma * future_value * mask
+        returns = returns.detach()  # Detach to prevent gradient updates through returns
 
-        # TODO figure out what all this mess means, and if there is any way in which you can optimize this
-        advantage = returns - value_list
-        self.actor_loss = -(log_prob_list*advantage.detach()).mean()
-        print('ACTOR LOSS:', self.actor_loss)
-        self.critic_loss = advantage.pow(2).mean()
-        print('CRITIC LOSS:', self.critic_loss)
+        # Calculate advantage
+        advantage = returns - value
+
+        # Calculate losses
+        self.actor_loss = -(log_prob * advantage.detach())
+        self.critic_loss = advantage.pow(2)
+    
+        # Print losses for debugging
+        print('ACTOR LOSS:', self.actor_loss.item())
+        print('CRITIC LOSS:', self.critic_loss.item())
+    
+        # Zero gradients, perform backpropagation, and update weights
         self.actor_optimizer.zero_grad()
         self.critic_optimizer.zero_grad()
         self.actor_loss.backward()
         self.critic_loss.backward()
         self.actor_optimizer.step()
         self.critic_optimizer.step()
-        self.value_list, self.log_prob_list, self.reward_list, self.mask_list = [],[],[],[]
 
     def test(self,num_episodes, log=False, model_id=0):
         print("TESTING")
