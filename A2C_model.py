@@ -70,8 +70,12 @@ class CriticNN(nn.Module): # keep in mind that this is a q-value based critic
 # class to initiate and train the agent
 class A2CModel():     
     def __init__(self):
-        self.learning_rate = 0.001
         self.gamma = 0.99
+        self.actor = ActorNN().to(DEVICE)
+        self.critic = CriticNN().to(DEVICE)
+        self.learning_rate = 0.001
+        self.actor_optimizer = T.optim.Adam(self.actor.parameters(), lr = self.learning_rate)
+        self.critic_optimizer = T.optim.Adam(self.critic.parameters(), lr = self.learning_rate)
 
     def get_state(self, obs):
         obs_input_layers = obs[[1,2,3,4,5,6,7,8,9,10,13]]
@@ -112,11 +116,6 @@ class A2CModel():
         highest_level = current_level = 0 # initializing the variables
 
         max_damage = 0
-        self.actor = ActorNN().to(DEVICE)
-        self.critic = CriticNN().to(DEVICE)
-        self.learning_rate = 0.001
-        self.actor_optimizer = T.optim.Adam(self.actor.parameters(), lr = self.learning_rate)
-        self.critic_optimizer = T.optim.Adam(self.critic.parameters(), lr = self.learning_rate)
 
         self.log_prob_list, self.value_list, self.reward_list, self.mask_list = [],[],[],[]
             
@@ -191,7 +190,7 @@ class A2CModel():
                 current_level += 1
             else: current_level = 0
 
-            if log: wandb.log({"episode_damage":episode_damage, "current_level":current_level, "episode":current_episode, 'game reward':reward['game'], 'total reward':reward['game']+episode_damage, })
+            if log: wandb.log({"episode_damage":episode_damage, "current_level":current_level, "episode":current_episode, 'game reward':reward['game'], 'total reward':reward['game']+episode_damage})
 
         env.close()
 
@@ -219,20 +218,57 @@ class A2CModel():
         self.critic_optimizer.step()
         self.value_list, self.log_prob_list, self.reward_list, self.mask_list = [],[],[],[]
 
+    def test(self,num_episodes, log=False, model_id=0):
+        print("TESTING")
+        file_path = os.path.join("a2c_state_dicts", f"{model_id}_state_dict.pth")
+        self.load_checkpoint(file_path, self.actor, self.critic, self.actor_optimizer, self.critic_optimizer)
+        current_level, highest_level = 0,0
+
+        for episodes in range(num_episodes):
+            if (current_level == 0):
+                env = Match3Env() 
+            obs,infos = env.reset() 
+
+            episode_damage, step_count = 0
+            episode_over = False
+            while not(episode_over):
+                state = self.get_state(obs).unsqueeze(0).to(DEVICE)
+                # just like in the train we will get the move
+                distribution = self.actor(state)
+                valid_moves = T.tensor(infos['action_space']).to(DEVICE)
+                masked_distribution = distribution.probs*valid_moves
+                new_distribution = T.distributions.Categorical(probs=masked_distribution)
+                action = new_distribution.sample()
+
+                # take the step and record outputs and values
+                obs, reward, episode_over, infos = env.step(action)
+                step_damage = reward['power_damage_on_monster'] + reward['match_damage_on_monster'] 
+                episode_damage += step_damage
+                step_count += 1
+                print('step damage:', step_damage)
+                print('step counter:', step_count)
+
+        return
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-e', '--episodes', type=int)
     parser.add_argument('-l', '--log', action="store_true")
     parser.add_argument('-ldmd', '--load_model', type=int)
+    parser.add_argument('-test', '--testing', action='store_true')
 
     args = parser.parse_args()
 
     print("episodes:", args.episodes)
     print("log:", args.log)
+    print('ldmd:', args.load_model)
+    print('testing:', args.testing)
 
     bot = A2CModel()
     # num_episodes = 1, log = False, load_model = False, model_id=0
-    bot.train(args.episodes, args.log, True, args.load_model) if args.load_model else bot.train(args.episodes, args.log, False)
+    if args.testing:
+        bot.test(args.episodes, args.log, args.load_model)
+    else: bot.train(args.episodes, args.log, True, args.load_model) if args.load_model else bot.train(args.episodes, args.log, False)
 
 if __name__ == "__main__":
     profiler = cProfile.Profile()
