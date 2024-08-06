@@ -121,6 +121,8 @@ class A2CModel():
         run_id = read_counter(counter_file) # for all files we will be assigning an id to the run
         write_counter(counter_file, run_id + 1)
 
+        run_name = run_id
+
         if load_model:
             file_path = os.path.join("a2c_state_dicts", f"{model_id}_state_dict.pth")
             self.load_checkpoint(file_path, self.actor, self.critic, self.actor_optimizer, self.critic_optimizer)        
