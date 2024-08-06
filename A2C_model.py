@@ -224,12 +224,14 @@ class A2CModel():
         self.load_checkpoint(file_path, self.actor, self.critic, self.actor_optimizer, self.critic_optimizer)
         current_level, highest_level = 0,0
 
-        for episodes in range(num_episodes):
+        if log: wandb.init(project="match3_a2c", name=str(f'TEST: {model_id}'))
+
+        for episode in range(num_episodes):
             if (current_level == 0):
                 env = Match3Env() 
             obs,infos = env.reset() 
 
-            episode_damage, step_count = 0
+            episode_damage, step_count = 0, 0
             episode_over = False
             while not(episode_over):
                 state = self.get_state(obs).unsqueeze(0).to(DEVICE)
@@ -247,7 +249,10 @@ class A2CModel():
                 step_count += 1
                 print('step damage:', step_damage)
                 print('step counter:', step_count)
-
+                print('test_model_id:', model_id)
+                print('episode:', episode)
+            total_reward = episode_damage + reward['game']
+            if log: wandb.log({'episode damage':episode_damage, 'episode': episode, 'current level': current_level, 'max level': highest_level, 'game reward':reward['game'], 'total reward':total_reward})
         return
 
 def main():
