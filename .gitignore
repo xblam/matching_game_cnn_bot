@@ -36,6 +36,7 @@ MANIFEST
 pip-log.txt
 pip-delete-this-directory.txt
 *run_counter.txt
+a2c_run_counter.txt
 
 
 # Unit test / coverage reports
