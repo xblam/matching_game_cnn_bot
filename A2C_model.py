@@ -118,14 +118,16 @@ class A2CModel():
         max_damage = 0
 
         self.log_prob_list, self.value_list, self.reward_list, self.mask_list = [],[],[],[]
+        run_id = read_counter(counter_file) # for all files we will be assigning an id to the run
+        write_counter(counter_file, run_id + 1)
 
         if load_model:
             file_path = os.path.join("a2c_state_dicts", f"{model_id}_state_dict.pth")
             self.load_checkpoint(file_path, self.actor, self.critic, self.actor_optimizer, self.critic_optimizer)        
-        run_id = read_counter(counter_file) # for all files we will be assigning an id to the run
-        write_counter(counter_file, run_id + 1)
+            run_name = f"{run_id}-{model_id}"
 
-        if log: wandb.init(project="match3_a2c", name=str(run_id))
+
+        if log: wandb.init(project="match3_a2c", name=str(run_name))
         env = Match3Env() # made the object here
 
         for current_episode in range(num_episodes): # each episode will be one playthrough of a levela
@@ -194,8 +196,6 @@ class A2CModel():
                 self.save_checkpoint(checkpoint, run_id)
                 max_damage = episode_damage
                 print("SAVED PARAMETERS TO FOLDER")
-
-
 
             if log: wandb.log({"episode_damage":episode_damage, "current_level":current_level, "episode":current_episode, 'game reward':reward['game'], 'total reward':reward['game']+episode_damage})
 
