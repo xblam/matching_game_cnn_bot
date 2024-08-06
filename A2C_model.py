@@ -33,10 +33,10 @@ def write_counter(file_path, count):
 class ActorNN(nn.Module):
     def __init__(self):
         super(ActorNN, self).__init__()
-        self.conv1 = nn.Conv2d(11,32,kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(32,64,kernel_size=3, stride=1, padding=1)
-        self.fc1 = nn.Linear(64*9*10, 256)
-        self.fc2 = nn.Linear(256, 161) # set it since we know how many outputs we want already
+        self.conv1 = nn.Conv2d(26,64,kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(64,128,kernel_size=3, stride=1, padding=1)
+        self.fc1 = nn.Linear(128*9*10, 512)
+        self.fc2 = nn.Linear(512, 161) # set it since we know how many outputs we want already
     
     def forward(self, x):
         # no pooling needed
@@ -52,10 +52,10 @@ class ActorNN(nn.Module):
 class CriticNN(nn.Module): # keep in mind that this is a q-value based critic
     def __init__(self):
         super(CriticNN, self).__init__()
-        self.conv1 = nn.Conv2d(11,32,kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(32,64,kernel_size=3, stride=1, padding=1)
-        self.fc1 = nn.Linear(64*9*10, 256) # just make sure that the dimensions are correct
-        self.fc2 = nn.Linear(256, 1) # just set this to 1 since it outputs the value function
+        self.conv1 = nn.Conv2d(26,64,kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(64,128,kernel_size=3, stride=1, padding=1)
+        self.fc1 = nn.Linear(128*9*10, 512) # just make sure that the dimensions are correct
+        self.fc2 = nn.Linear(512, 1) # just set this to 1 since it outputs the value function
     
     def forward(self, x):
         # no pooling needed
@@ -66,7 +66,6 @@ class CriticNN(nn.Module): # keep in mind that this is a q-value based critic
         x = self.fc2(x)
         return x
    
-
 # class to initiate and train the agent
 class A2CModel():     
     def __init__(self):
@@ -89,7 +88,7 @@ class A2CModel():
     def compute_returns(self, step_return, rewards, masks, gamma=.99):
         returns = []
         for reward, mask in zip(reversed(rewards), reversed(masks)):
-            # mask is essentially whether or not the episode is over
+            # mask is essentially whether or not the episode iss over
             step_return = reward + gamma*step_return*mask 
             returns.append(step_return)
         returns.reverse()
@@ -113,34 +112,34 @@ class A2CModel():
         critic_optimizer.load_state_dict(state_dict['critic_optimizer'])
     
     def train(self, num_episodes = 1, log = False, load_model = False, model_id=0):
-        highest_level = current_level = 0 # initializing the variables
+        # in some sense we want the model to learn on many different games at once, so that it diversifies
+        current_level = 0 # initializing the variables
 
         max_damage = 0
 
         self.log_prob_list, self.value_list, self.reward_list, self.mask_list = [],[],[],[]
-            
+
+        if load_model:
+            file_path = os.path.join("a2c_state_dicts", f"{model_id}_state_dict.pth")
+            self.load_checkpoint(file_path, self.actor, self.critic, self.actor_optimizer, self.critic_optimizer)        
         run_id = read_counter(counter_file) # for all files we will be assigning an id to the run
         write_counter(counter_file, run_id + 1)
 
         if log: wandb.init(project="match3_a2c", name=str(run_id))
-
-        if load_model:
-            file_path = os.path.join("a2c_state_dicts", f"{model_id}_state_dict.pth")
-            self.load_checkpoint(file_path, self.actor, self.critic, self.actor_optimizer, self.critic_optimizer)
 
         for current_episode in range(num_episodes): # each episode will be one playthrough of a levela
             print('STARTED NEW LIFE')
             episode_damage = 0
             step_count = 0
 
-            if (current_level == 0):
-                env = Match3Env() # we want to increment the level 
+            # if (current_level == 0):
+            env = Match3Env() # we want to increment the level 
             obs,infos = env.reset() #XBLAM can change this to underscore later if need be
 
             episode_over = False
             while not episode_over: # iterate over life 
 
-                state = self.get_state(obs).unsqueeze(0).to(DEVICE)
+                state = obs.unsqueeze(0).to(DEVICE)
                 distribution, value = self.actor(state), self.critic(state)
                 valid_moves = T.tensor(infos['action_space']).to(DEVICE)
                 masked_distribution = distribution.probs*valid_moves
@@ -150,7 +149,7 @@ class A2CModel():
 
                 # play the game and update the state
                 obs, reward, episode_over, infos = env.step(action)
-                new_state = self.get_state(obs).unsqueeze(0).to(DEVICE)
+                new_state = obs.unsqueeze(0).to(DEVICE)
                 
                 log_prob = distribution.log_prob(action).unsqueeze(0)
                 self.log_prob_list.append(log_prob)
@@ -234,7 +233,7 @@ class A2CModel():
             episode_damage, step_count = 0, 0
             episode_over = False
             while not(episode_over):
-                state = self.get_state(obs).unsqueeze(0).to(DEVICE)
+                state = obs.unsqueeze(0).to(DEVICE)
                 # just like in the train we will get the move
                 distribution = self.actor(state)
                 valid_moves = T.tensor(infos['action_space']).to(DEVICE)
@@ -252,7 +251,7 @@ class A2CModel():
                 print('test_model_id:', model_id)
                 print('episode:', episode)
             total_reward = episode_damage + reward['game']
-            if log: wandb.log({'episode damage':episode_damage, 'episode': episode, 'current level': current_level, 'max level': highest_level, 'game reward':reward['game'], 'total reward':total_reward})
+            if log: wandb.log({'episode damage':episode_damage, 'episode': episode, 'current level': current_level, 'game reward':reward['game'], 'total reward':total_reward})
         return
 
 def main():

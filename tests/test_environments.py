@@ -1,6 +1,6 @@
 import numpy as np
-from model import *
-
+import sys
+import os
 
 from gym_match3.envs.match3_env import Match3Env
 from display.pygame_display import *
@@ -70,6 +70,7 @@ for i in range(100):
         # episode over just signifies whether or not the player/creep has died
         # infos is just the dictionary containing the action space of moves that would result in a match
         obs, reward, episode_over, infos = env.step(selected_action)
+        print(obs['legal_action'])
         # print("1", obs[1])
         # print("2", obs[2])
         # print("3:", obs[3])
