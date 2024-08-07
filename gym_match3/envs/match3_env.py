@@ -189,14 +189,6 @@ class Match3Env(gym.Env):
         }
 
 
-    def randomize_level(self, *args, **kwargs):
-        board, list_monsters = self.levels.sample()
-        self.__game.start(board, list_monsters)
-        obs = self.helper._format_observation(self.__get_board(), list_monsters, "cpu")
-        return self.helper.obs_to_tensor(obs["obs"]), {
-            "action_space": obs["action_space"]
-        }
-
 
     def __swap(self, point1, point2):
         try:
