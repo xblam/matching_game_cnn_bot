@@ -85,17 +85,6 @@ class A2CModel():
         plt.hist(flat_tensor, bins = 40, alpha=0.7, color='blue', edgecolor='black')
         plt.show()
 
-    def compute_returns(self, step_return, rewards, masks, gamma=.99):
-        returns = []
-        for reward, mask in zip(reversed(rewards), reversed(masks)):
-            # mask is essentially whether or not the episode iss over
-            step_return = reward + gamma*step_return*mask 
-            returns.append(step_return)
-        returns.reverse()
-        return returns
-        '''returns list is a list containing how valuable this reward is, if we also consider all future rewards
-        # ex: if a rewards list is [10,20,30], the function will return [523,47,30]'''
-    
     def save_checkpoint(self, save_states, run_id):
         print("saving checkpoint ---->>>")
         dir_name = "a2c_state_dicts"
