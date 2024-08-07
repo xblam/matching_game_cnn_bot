@@ -137,7 +137,7 @@ class A2CModel():
             episode_damage = 0
             step_count = 0
 
-            obs,infos = env.randomize_level() # we actually want it to go through every level so just move on when you die 
+            obs,infos = env.next_level() # we actually want it to go through every level so just move on when you die 
 
             episode_over = False
             while not episode_over: # iterate over life 
